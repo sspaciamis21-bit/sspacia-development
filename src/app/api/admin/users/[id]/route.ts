@@ -103,11 +103,14 @@ export const PATCH = withPermission('users', 'update', async (
 
       // Replace location assignments if provided
       if (Array.isArray(assignedLocationIds)) {
-        const locIds = assignedLocationIds as number[];
+        const validLocIds = assignedLocationIds
+          .map((id: any) => parseInt(String(id), 10))
+          .filter((id: number) => !isNaN(id) && id > 0);
+
         await tx.userLocation.deleteMany({ where: { userId } });
-        if (locIds.length > 0) {
+        if (validLocIds.length > 0) {
           await tx.userLocation.createMany({
-            data: locIds.map((locId) => ({ userId, locationId: locId })),
+            data: validLocIds.map((locId: number) => ({ userId, locationId: locId })),
           });
         }
       }

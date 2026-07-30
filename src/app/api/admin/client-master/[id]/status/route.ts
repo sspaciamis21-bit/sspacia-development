@@ -12,6 +12,18 @@ export async function PATCH(
     const body = await request.json();
     const { status, remarks } = body;
 
+    const validStatuses = [
+      'DRAFT',
+      'SENT_TO_ACCOUNTANT',
+      'INVOICE_ATTACHED',
+      'APPROVED',
+      'REJECTED_WITH_REMARKS',
+    ];
+
+    if (!status || !validStatuses.includes(status)) {
+      return NextResponse.json({ error: 'Invalid status provided' }, { status: 400 });
+    }
+
     const updated = await (prisma as any).clientMaster.update({
       where: { id: entryId },
       data: {
@@ -27,7 +39,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
-    console.error('Update status error:', error);
+    console.error('Update client master status error:', error);
     return NextResponse.json({ error: 'Failed to update entry status' }, { status: 500 });
   }
 }

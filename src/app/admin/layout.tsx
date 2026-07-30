@@ -35,6 +35,7 @@ const sidebarItems = [
   { name: 'Bookings', href: '/admin/bookings', icon: Calendar },
   { name: 'Contracts', href: '/manager/contracts', icon: ShieldCheck },
   { name: 'Documents', href: '/manager/documents', icon: FileText },
+  { name: 'Client Master', href: '/admin/client-master', icon: FileText },
   { name: 'Invoices', href: '/admin/Invoices', icon: FileText },
 
 ];

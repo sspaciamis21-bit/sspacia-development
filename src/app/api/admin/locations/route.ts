@@ -6,7 +6,7 @@ import { requireAuth } from '@/lib/auth';
 
 // ─── GET /api/admin/locations ────────────────────────────────────────────────
 // List all locations with pagination. Scoped to assigned locations if any.
-export const GET = withPermission('locations', 'read', async (req: NextRequest) => {
+export const GET = withPermission('locations', 'view', async (req: NextRequest) => {
   try {
     const payload = await requireAuth();
     if (!payload?.id) {

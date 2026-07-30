@@ -364,7 +364,7 @@ export default function UserLayout({
 
         <nav className="flex-1 px-5 py-6 space-y-2 overflow-y-auto no-scrollbar">
           {(isRole('COMMUNITY_MANAGER') || isRole('MANAGER') || isRole('ADMIN')
-            ? [...sidebarItems, { name: 'Invoices', href: '/manager/Invoices', icon: Receipt }]
+            ? [...sidebarItems, { name: 'Client Master', href: '/manager/Invoices', icon: Receipt }]
             : sidebarItems
           ).map((item) => {
             const isActive = pathname === item.href;

@@ -179,7 +179,8 @@ model User {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   activityLogs      ActivityLog[]
-  billingEntries    BillingEntry[]
+  clientMasterEntries ClientMaster[]
+  invoiceRecords    InvoiceRecord[]
   uploadedInvoices  AttachedInvoice[]
   supportTickets    SupportTicket[] @relation("TicketAssignee")
   role              Role            @relation(fields: [roleId], references: [id])
@@ -299,7 +300,7 @@ model Location {
   products       Product[]
   assignedUsers  UserLocation[]
   supportTickets SupportTicket[]
-  billingEntries BillingEntry[]
+
 
   @@index([cityId])
   @@index([slug])
@@ -901,75 +902,113 @@ model SigningChallenge {
   createdAt   DateTime @default(now())
 }
 
-// ── BILLING ENTRIES (INVOICES SECTION) ───────────────────────────────────────
-model BillingEntry {
-  id                     Int                @id @default(autoincrement())
-  centreId               Int
-  company                String             // "SSPACIA" or "SS Infrazone"
-  client                 String
-  durationMode           String             @default("HOURS") // "HOURS" | "DAYS"
-  meetingRoomUsedMinutes Int?
-  meetingRoomUsedDays    Int?
-  complementaryMinutes   Int?
-  complementaryDays      Int?
-  toBeChargedMinutes     Int?
-  toBeChargedDays        Int?
-  boardRoomAmount        Decimal?           @db.Decimal(12, 2)
-  eventSpaceAmount       Decimal?           @db.Decimal(12, 2)
-  otherServicesAmount    Decimal?           @db.Decimal(12, 2)
-  finalAmount            Decimal?           @db.Decimal(12, 2)
-  lastDateOfPayment      DateTime?
+// ── CLIENT MASTER (REPOSITORY / DATA ENTRY) ─────────────────────────────────
+model ClientMaster {
+  id                     Int                    @id @default(autoincrement())
+  srNo                   Int                    @unique
+  companyName            String
+  hoAddress              String?                @db.Text
+  gstStatus              String                 @default("UNREGISTERED") // "REGISTERED" | "UNREGISTERED"
   gstNo                  String?
-  address                String?            @db.Text
-  status                 String             @default("DRAFT") // "DRAFT" | "SENT_TO_ACCOUNTANT" | "INVOICE_ATTACHED" | "APPROVED" | "REJECTED_WITH_REMARKS"
-  remarks                String?            @db.Text
+  gstPdfUrl              String?                @db.Text
+  gstPdfName             String?
+  agreementStartDate     DateTime?
+  agreementEndDate       DateTime?
+  lockinEndDate          DateTime?
+  noticePeriodMonths     Int?
+  noticePeriodApplicable String?                // "AFTER_LOCKIN" | "BEFORE_LOCKIN"
+  escalationPercent      Decimal?               @db.Decimal(5, 2)
+  escalationApplicable   Decimal?               @db.Decimal(12, 2)
+  cabinName              String?
+  noOfSeats              Int?
+  ratePerAgreement       Decimal?               @db.Decimal(12, 2)
+  amount                 Decimal?               @db.Decimal(12, 2) // noOfSeats * ratePerAgreement (editable)
+  gstPercent             Decimal?               @db.Decimal(5, 2)
+  totalAmount            Decimal?               @db.Decimal(12, 2) // amount + GST (editable)
+  willDeductTds          Boolean                @default(false)
+  tanNo                  String?
+  tdsPdfUrl              String?                @db.Text
+  tdsPdfName             String?
+  clientId               String?
+  sorAmount              Decimal?               @db.Decimal(12, 2)
+  sorRecdDate            DateTime?
+  clientStatus           String?                @default("Active") // "Active" | "Inactive" | "On Notice" | "Terminated"
   createdById            Int
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
 
-  centre                 Location           @relation(fields: [centreId], references: [id])
-  createdBy              User               @relation(fields: [createdById], references: [id])
-  items                  BillingEntryItem[]
-  attachedInvoice        AttachedInvoice?
+  createdBy              User                   @relation(fields: [createdById], references: [id])
+  contactPersons         ClientContactPerson[]
+  invoiceRecords         InvoiceRecord[]
 
-  @@index([centreId])
   @@index([createdById])
-  @@index([client])
-  @@index([status])
+  @@index([companyName])
+  @@index([clientStatus])
 }
 
-model BillingEntryItem {
-  id          Int          @id @default(autoincrement())
-  entryId     Int
-  product     String
-  seats       Int          @default(1)
-  ratePerSeat Decimal      @db.Decimal(12, 2)
-  fromDate    DateTime?
-  toDate      DateTime?
-  amount      Decimal      @db.Decimal(12, 2)
-  sortOrder   Int          @default(0)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+model ClientContactPerson {
+  id             Int          @id @default(autoincrement())
+  clientMasterId Int
+  name           String
+  designation    String?
+  mobileNo       String?
+  email          String?
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  entry       BillingEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  clientMaster   ClientMaster @relation(fields: [clientMasterId], references: [id], onDelete: Cascade)
 
-  @@index([entryId])
+  @@index([clientMasterId])
+}
+
+// ── INVOICE RECORDS (GENERATED MONTHLY WORKFLOW ENTRIES) ─────────────────────
+model InvoiceRecord {
+  id                     Int                    @id @default(autoincrement())
+  clientMasterId         Int
+  srNo                   Int
+  companyName            String
+  cabinName              String?
+  noOfSeats              Int?
+  ratePerAgreement       Decimal?               @db.Decimal(12, 2)
+  amount                 Decimal?               @db.Decimal(12, 2)
+  gstPercent             Decimal?               @db.Decimal(5, 2)
+  totalAmount            Decimal?               @db.Decimal(12, 2)
+  gstNo                  String?
+  billingMonth           String?                // e.g. "July 2026"
+  sendType               String                 @default("MANUAL") // "MANUAL" | "AUTOMATIC_MONTH_END"
+  sentAt                 DateTime               @default(now())
+  status                 String                 @default("PENDING_CM_REVIEW") // "PENDING_CM_REVIEW" | "SENT_TO_ACCOUNTANT" | "INVOICE_ATTACHED" | "APPROVED" | "REJECTED_WITH_REMARKS"
+  remarks                String?                @db.Text
+  createdById            Int
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  clientMaster           ClientMaster           @relation(fields: [clientMasterId], references: [id], onDelete: Cascade)
+  createdBy              User                   @relation(fields: [createdById], references: [id])
+  attachedInvoice        AttachedInvoice?
+
+  @@index([clientMasterId])
+  @@index([createdById])
+  @@index([status])
+  @@index([sendType])
 }
 
 model AttachedInvoice {
-  id           Int          @id @default(autoincrement())
-  entryId      Int          @unique
-  fileUrl      String       @db.Text
-  fileName     String
-  fileSize     Int?
-  uploadedById Int
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id              Int            @id @default(autoincrement())
+  invoiceRecordId Int?           @unique
+  clientMasterId  Int?           @unique
+  fileUrl         String         @db.Text
+  fileName        String
+  fileSize        Int?
+  uploadedById    Int
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  entry        BillingEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  uploadedBy   User         @relation(fields: [uploadedById], references: [id])
+  invoiceRecord   InvoiceRecord? @relation(fields: [invoiceRecordId], references: [id], onDelete: Cascade)
+  uploadedBy      User           @relation(fields: [uploadedById], references: [id])
 
-  @@index([entryId])
+  @@index([invoiceRecordId])
   @@index([uploadedById])
 }
 

@@ -26,20 +26,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const numEntryId = Number(entryId);
+    const numInvoiceRecordId = Number(entryId);
 
-    const entry = await (prisma as any).billingEntry.findUnique({
-      where: { id: numEntryId },
+    const invoiceRecord = await (prisma as any).invoiceRecord.findUnique({
+      where: { id: numInvoiceRecordId },
     });
 
-    if (!entry) {
-      return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
+    if (!invoiceRecord) {
+      return NextResponse.json({ error: 'Invoice record not found' }, { status: 404 });
     }
 
     const attachedInvoice = await (prisma as any).attachedInvoice.upsert({
-      where: { entryId: numEntryId },
+      where: { invoiceRecordId: numInvoiceRecordId },
       create: {
-        entryId: numEntryId,
+        invoiceRecordId: numInvoiceRecordId,
         fileUrl,
         fileName: fileName || 'Invoice.pdf',
         fileSize: fileSize ? Number(fileSize) : null,
@@ -55,8 +55,8 @@ export async function POST(request: Request) {
     });
 
     // Automatically update status to INVOICE_ATTACHED
-    await (prisma as any).billingEntry.update({
-      where: { id: numEntryId },
+    await (prisma as any).invoiceRecord.update({
+      where: { id: numInvoiceRecordId },
       data: {
         status: 'INVOICE_ATTACHED',
       },

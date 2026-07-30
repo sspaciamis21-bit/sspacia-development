@@ -78,6 +78,13 @@ export default function ManagerLayout({
     items.push({ name: 'Documents', href: '/manager/documents', icon: FileText });
     items.push({ name: 'Agreements', href: '/manager/agreements', icon: FileText });
     items.push({ name: 'Users', href: '/manager/users', icon: Users });
+    const userEmail = user?.email?.toLowerCase() || '';
+    const isAccountant = userEmail === 'ssinfrazone21@gmail.com';
+
+    // Only non-accountants (Admin & Community Manager) see Client Master
+    if (!isAccountant || isRole('ADMIN')) {
+      items.push({ name: 'Client Master', href: '/manager/client-master', icon: FileText });
+    }
     items.push({ name: 'Invoices', href: '/manager/Invoices', icon: Receipt });
 
     // Optional/Permission based routes (Keeping Locations if managed by some)

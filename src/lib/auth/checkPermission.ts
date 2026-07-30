@@ -43,12 +43,14 @@ export async function checkPermission(
   }
 
   // Granular check for other roles
+  const actions = (action === 'read' || action === 'view') ? ['read', 'view'] : [action];
+
   const count = await prisma.rolePermission.count({
     where: {
       roleId: user.roleId,
       permission: {
         module,
-        action,
+        action: { in: actions },
       },
     },
   });

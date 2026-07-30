@@ -7,27 +7,39 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const entryId = Number(id);
+    const invoiceRecordId = Number(id);
 
     const body = await request.json();
     const { status, remarks } = body;
 
-    const updated = await (prisma as any).clientMaster.update({
-      where: { id: entryId },
+    const validStatuses = [
+      'PENDING_CM_REVIEW',
+      'SENT_TO_ACCOUNTANT',
+      'INVOICE_ATTACHED',
+      'APPROVED',
+      'REJECTED_WITH_REMARKS',
+    ];
+
+    if (!status || !validStatuses.includes(status)) {
+      return NextResponse.json({ error: 'Invalid status provided' }, { status: 400 });
+    }
+
+    const updated = await (prisma as any).invoiceRecord.update({
+      where: { id: invoiceRecordId },
       data: {
         status,
         ...(remarks !== undefined ? { remarks: remarks ? String(remarks).trim() : null } : {}),
       },
       include: {
+        clientMaster: true,
         createdBy: { select: { id: true, name: true, email: true } },
-        contactPersons: true,
         attachedInvoice: true,
       },
     });
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
-    console.error('Update status error:', error);
-    return NextResponse.json({ error: 'Failed to update entry status' }, { status: 500 });
+    console.error('Update invoice record status error:', error);
+    return NextResponse.json({ error: 'Failed to update invoice status' }, { status: 500 });
   }
 }

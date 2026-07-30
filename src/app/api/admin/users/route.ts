@@ -108,7 +108,9 @@ export const POST = withPermission('users', 'create', async (req: NextRequest, {
 
     const hashedPassword = await bcrypt.hash(String(password), 12);
     const locationIds: number[] = Array.isArray(assignedLocationIds)
-      ? (assignedLocationIds as number[])
+      ? assignedLocationIds
+          .map((id: any) => parseInt(String(id), 10))
+          .filter((id: number) => !isNaN(id) && id > 0)
       : [];
 
     const user = await prisma.$transaction(async (tx) => {
