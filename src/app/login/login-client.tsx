@@ -43,9 +43,9 @@ export default function LoginClient() {
       }
 
       toast.success('Welcome back to SSPACIA!');
-      
+
       await refreshUser();
-      
+
       if (redirect) {
         router.push(decodeURIComponent(redirect));
         return;
@@ -59,10 +59,11 @@ export default function LoginClient() {
       } else {
         router.push('/manager/dashboard');
       }
-      
+
       router.refresh();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -95,7 +96,7 @@ export default function LoginClient() {
       <div className="flex w-full lg:w-1/2 items-center justify-center p-8 sm:p-16 relative">
         <div className="absolute top-0 right-12 w-[1px] h-full bg-outline-variant/10 hidden md:block"></div>
         <div className="absolute top-12 left-0 w-full h-[1px] bg-outline-variant/10 hidden md:block"></div>
-        
+
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}

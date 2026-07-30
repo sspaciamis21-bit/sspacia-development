@@ -17,6 +17,7 @@ import {
   Calendar,
   FileText,
   ShieldCheck,
+  Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -47,8 +48,8 @@ export default function ManagerLayout({
         return;
       }
 
-      // Ensure they have assigned locations if they aren't admin and just a basic staff
-      if (!isRole('ADMIN') && (!user.assignedLocations || user.assignedLocations.length === 0)) {
+      // Ensure they have assigned locations if they aren't admin/community manager and just a basic staff
+      if (!isRole('ADMIN') && !isRole('COMMUNITY_MANAGER') && (!user.assignedLocations || user.assignedLocations.length === 0)) {
         toast.error('No assigned locations. Contact admin.');
         router.push('/dashboard');
       }
@@ -77,6 +78,7 @@ export default function ManagerLayout({
     items.push({ name: 'Documents', href: '/manager/documents', icon: FileText });
     items.push({ name: 'Agreements', href: '/manager/agreements', icon: FileText });
     items.push({ name: 'Users', href: '/manager/users', icon: Users });
+    items.push({ name: 'Invoices', href: '/manager/Invoices', icon: Receipt });
 
     // Optional/Permission based routes (Keeping Locations if managed by some)
     if (hasPermission('view_location_details') || isRole('ADMIN')) {

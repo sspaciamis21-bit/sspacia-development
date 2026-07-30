@@ -21,7 +21,8 @@ import {
   ArrowRight,
   User,
   FileText,
-  ShieldCheck
+  ShieldCheck,
+  Receipt
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -54,7 +55,7 @@ export default function UserLayout({
     companyStreet: '', companyCity: '', companyState: '', companyZip: ''
   });
 
-  const isRegularUser = user && !isRole('ADMIN') && !isRole('MANAGER');
+  const isRegularUser = user && !isRole('ADMIN') && !isRole('MANAGER') && !isRole('COMMUNITY_MANAGER');
   
   const [hasSkippedProfile, setHasSkippedProfile] = useState(false);
 
@@ -362,7 +363,10 @@ export default function UserLayout({
         </div>
 
         <nav className="flex-1 px-5 py-6 space-y-2 overflow-y-auto no-scrollbar">
-          {sidebarItems.map((item) => {
+          {(isRole('COMMUNITY_MANAGER') || isRole('MANAGER') || isRole('ADMIN')
+            ? [...sidebarItems, { name: 'Invoices', href: '/manager/Invoices', icon: Receipt }]
+            : sidebarItems
+          ).map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link

@@ -1,3 +1,5 @@
+console.log("DATABASE_URL =", process.env.DATABASE_URL);
+
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = global as typeof global & {

@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Package, 
-  LogOut, 
+import {
+  LayoutDashboard,
+  Users,
+  Package,
+  LogOut,
   Loader2,
   MapPin,
   ChevronLeft,
@@ -35,6 +35,8 @@ const sidebarItems = [
   { name: 'Bookings', href: '/admin/bookings', icon: Calendar },
   { name: 'Contracts', href: '/manager/contracts', icon: ShieldCheck },
   { name: 'Documents', href: '/manager/documents', icon: FileText },
+  { name: 'Invoices', href: '/admin/Invoices', icon: FileText },
+
 ];
 
 export default function AdminLayout({
@@ -78,12 +80,11 @@ export default function AdminLayout({
   return (
     <div className="h-screen overflow-hidden bg-[#F8F9FA] flex">
       {/* Sidebar */}
-      <aside 
-        className={`${
-          isSidebarOpen ? 'w-72' : 'w-20'
-        } bg-white border-r border-[var(--outline-variant)]/40 transition-all duration-300 ease-in-out flex flex-col z-50 relative`}
+      <aside
+        className={`${isSidebarOpen ? 'w-72' : 'w-20'
+          } bg-white border-r border-[var(--outline-variant)]/40 transition-all duration-300 ease-in-out flex flex-col z-50 relative`}
       >
-        <button 
+        <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="absolute -right-3 top-8 p-1.5 bg-white border border-[var(--outline-variant)]/60 rounded-none text-[#1B1C1C] shadow-sm hover:bg-[var(--primary)] hover:text-white transition-all z-[60]"
         >
@@ -123,18 +124,17 @@ export default function AdminLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-4 px-4 py-3.5 rounded-none transition-all group relative ${
-                  isActive 
-                    ? 'bg-[var(--primary)] text-white' 
-                    : 'text-[#616161] hover:bg-neutral-50 hover:text-[#1B1C1C]'
-                }`}
+                className={`flex items-center gap-4 px-4 py-3.5 rounded-none transition-all group relative ${isActive
+                  ? 'bg-[var(--primary)] text-white'
+                  : 'text-[#616161] hover:bg-neutral-50 hover:text-[#1B1C1C]'
+                  }`}
               >
                 <item.icon size={20} className={`${isActive ? 'text-white' : 'group-hover:scale-110 transition-transform'}`} />
                 {isSidebarOpen && (
                   <span className="font-bold text-[10px] uppercase tracking-[0.2em] whitespace-nowrap">{item.name}</span>
                 )}
                 {isActive && (
-                  <motion.div 
+                  <motion.div
                     layoutId="active-indicator"
                     className="absolute left-0 w-1 h-8 bg-white/40"
                   />
@@ -158,19 +158,19 @@ export default function AdminLayout({
               </div>
             ) : (
               <div className="flex justify-center w-full">
-                 <div className="h-10 w-10 shrink-0 rounded-none bg-white text-[var(--primary)] flex items-center justify-center border border-[var(--outline-variant)]/40 font-black text-sm">
+                <div className="h-10 w-10 shrink-0 rounded-none bg-white text-[var(--primary)] flex items-center justify-center border border-[var(--outline-variant)]/40 font-black text-sm">
                   {user.name?.charAt(0).toUpperCase()}
                 </div>
               </div>
             )}
-            
+
             <button
-               onClick={handleLogout}
-               className="w-full flex items-center gap-4 px-3 py-3 text-[#616161] hover:bg-neutral-100 hover:text-red-600 rounded-none transition-all group border border-transparent hover:border-red-100"
-               title="Logout"
+              onClick={handleLogout}
+              className="w-full flex items-center gap-4 px-3 py-3 text-[#616161] hover:bg-neutral-100 hover:text-red-600 rounded-none transition-all group border border-transparent hover:border-red-100"
+              title="Logout"
             >
-               <LogOut size={18} className="shrink-0 group-hover:translate-x-1 transition-transform" />
-               {isSidebarOpen && <span className="font-bold text-[9px] uppercase tracking-[0.3em] whitespace-nowrap">DISPATCH NODE</span>}
+              <LogOut size={18} className="shrink-0 group-hover:translate-x-1 transition-transform" />
+              {isSidebarOpen && <span className="font-bold text-[9px] uppercase tracking-[0.3em] whitespace-nowrap">DISPATCH NODE</span>}
             </button>
           </div>
         )}

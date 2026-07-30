@@ -282,8 +282,52 @@ export default function AdminDashboardPage() {
                     <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#9E9E9E]">Verification Engine Syncing</p>
                  </div>
               </div>
-           </div>
-        </FadeUp>
+            </div>
+         </FadeUp>
+
+         {/* Invoices & Billing Section */}
+         <FadeUp delay={0.48} className="lg:col-span-8">
+            <div className="bg-white p-10 border border-[var(--outline-variant)]/40 shadow-xl flex flex-col h-full space-y-6">
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                     <div className="h-1.5 w-6 bg-[var(--primary)]"></div>
+                     <h3 className="text-[10px] font-black text-[#1B1C1C] uppercase tracking-[0.3em]">Invoices & Billing Workflow</h3>
+                  </div>
+                  <Link href="/admin/Invoices" className="text-[9px] font-bold text-[var(--primary)] uppercase tracking-widest hover:underline">
+                     Open Billing Hub →
+                  </Link>
+               </div>
+
+               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                  <div className="p-3 bg-neutral-50 border border-neutral-200">
+                     <div className="text-[9px] font-bold uppercase tracking-wider text-neutral-500">CM Entries</div>
+                     <div className="text-lg font-black text-[#1B1C1C] mt-0.5">Active</div>
+                  </div>
+                  <div className="p-3 bg-blue-50/50 border border-blue-200">
+                     <div className="text-[9px] font-bold uppercase tracking-wider text-blue-700">Accountant</div>
+                     <div className="text-lg font-black text-blue-800 mt-0.5">Tally Sync</div>
+                  </div>
+                  <div className="p-3 bg-amber-50/50 border border-amber-200">
+                     <div className="text-[9px] font-bold uppercase tracking-wider text-amber-700">PDF Verification</div>
+                     <div className="text-lg font-black text-amber-800 mt-0.5">Pending</div>
+                  </div>
+                  <div className="p-3 bg-emerald-50/50 border border-emerald-200">
+                     <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-700">Approvals</div>
+                     <div className="text-lg font-black text-emerald-800 mt-0.5">Finalized</div>
+                  </div>
+               </div>
+
+               <div className="flex-1 flex flex-col sm:flex-row items-center justify-between p-5 bg-neutral-50 border border-[var(--outline-variant)]/20 gap-4">
+                  <div className="space-y-1 text-center sm:text-left">
+                     <p className="text-xs font-bold text-[#1B1C1C]">Collaborative CM & Accountant Lifecycle</p>
+                     <p className="text-[11px] text-[#616161] font-light">Community Manager creates entries, Accountant attaches Tally PDF invoices, and CM reviews with revision feedback.</p>
+                  </div>
+                  <Link href="/admin/Invoices" className="px-5 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1B1B1B] transition-colors shrink-0">
+                     Launch Invoices Hub
+                  </Link>
+               </div>
+            </div>
+         </FadeUp>
 
         {/* Quick Actions */}
         <FadeUp delay={0.5} className="lg:col-span-4">
@@ -340,6 +384,16 @@ export default function AdminDashboardPage() {
                   <span className="flex items-center gap-3">
                     <FileText size={18} />
                     Identity Audit
+                  </span>
+                  <ChevronRight size={16} className="opacity-0 group-hover:opacity-100 transition-all translate-x--2 group-hover:translate-x-0" />
+                </Link>
+                <Link
+                  href="/admin/Invoices"
+                  className="w-full flex items-center justify-between px-6 py-5 bg-[var(--primary)]/10 border border-[var(--primary)]/30 text-[var(--primary)] rounded-none font-black text-[10px] uppercase tracking-[0.2em] hover:bg-[var(--primary)] hover:text-white transition-all group"
+                >
+                  <span className="flex items-center gap-3">
+                    <FileText size={18} />
+                    Invoices & Entries Hub
                   </span>
                   <ChevronRight size={16} className="opacity-0 group-hover:opacity-100 transition-all translate-x--2 group-hover:translate-x-0" />
                 </Link>
