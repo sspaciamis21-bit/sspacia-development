@@ -23,6 +23,8 @@ import {
 import { toast } from 'sonner';
 
 import { useAuth } from '@/context/AuthContext';
+import { useSidebar } from '@/context/SidebarContext';
+import { ManageProfileModal } from '@/components/profile/ManageProfileModal';
 
 const sidebarItems = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -45,7 +47,8 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const { user, isLoading, logout, isRole } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -148,7 +151,11 @@ export default function AdminLayout({
         {user && (
           <div className="border-t border-[var(--outline-variant)]/30 p-6 shrink-0 flex flex-col gap-4">
             {isSidebarOpen ? (
-              <div className="flex items-center gap-4 px-2 w-full">
+              <div 
+                onClick={() => setIsProfileModalOpen(true)}
+                className="flex items-center gap-4 px-2 w-full cursor-pointer hover:opacity-80 transition-opacity"
+                title="Manage Profile"
+              >
                 <div className="h-10 w-10 shrink-0 rounded-none bg-white text-[var(--primary)] flex items-center justify-center border border-[var(--outline-variant)]/40 font-black text-sm">
                   {user.name?.charAt(0).toUpperCase()}
                 </div>
@@ -158,7 +165,11 @@ export default function AdminLayout({
                 </div>
               </div>
             ) : (
-              <div className="flex justify-center w-full">
+              <div 
+                onClick={() => setIsProfileModalOpen(true)}
+                className="flex justify-center w-full cursor-pointer hover:opacity-80 transition-opacity"
+                title="Manage Profile"
+              >
                 <div className="h-10 w-10 shrink-0 rounded-none bg-white text-[var(--primary)] flex items-center justify-center border border-[var(--outline-variant)]/40 font-black text-sm">
                   {user.name?.charAt(0).toUpperCase()}
                 </div>
@@ -183,6 +194,11 @@ export default function AdminLayout({
           {children}
         </div>
       </main>
+
+      <ManageProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { siteConfig } from "../config/site";
 import { StructuredData } from "../components/structured-data";
 import { seoConfig } from "../config/seo";
 import { AuthProvider } from "../context/AuthContext";
+import { SidebarProvider } from "../context/SidebarContext";
 import { MainWrapper } from "../components/main-wrapper";
 
 const geistSans = Geist({
@@ -202,8 +203,10 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <AuthProvider>
-          <MainWrapper>{children}</MainWrapper>
-          <Toaster position="top-right" />
+          <SidebarProvider>
+            <MainWrapper>{children}</MainWrapper>
+            <Toaster position="top-right" />
+          </SidebarProvider>
         </AuthProvider>
       </body>
     </html>

@@ -27,6 +27,8 @@ import {
 import { toast } from 'sonner';
 
 import { useAuth } from '@/context/AuthContext';
+import { useSidebar } from '@/context/SidebarContext';
+import { ManageProfileModal } from '@/components/profile/ManageProfileModal';
 
 const sidebarItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -43,7 +45,8 @@ export default function UserLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const { user, isLoading, logout, isRole, refreshUser } = useAuth();
   const pathname = usePathname();
@@ -397,7 +400,11 @@ export default function UserLayout({
         {user && (
           <div className="border-t border-[var(--outline-variant)]/20 p-6 shrink-0 flex flex-col gap-4">
             {isSidebarOpen ? (
-              <div className="flex items-center gap-4 px-1 mb-2 w-full group cursor-pointer">
+              <div 
+                onClick={() => setIsProfileModalOpen(true)}
+                className="flex items-center gap-4 px-1 mb-2 w-full group cursor-pointer hover:opacity-80 transition-opacity"
+                title="Manage Profile"
+              >
                 <div className="h-10 w-10 shrink-0 rounded-none bg-[var(--surface-low)] text-[var(--primary)] flex items-center justify-center border border-[var(--outline-variant)] font-display font-bold text-base transition-all group-hover:bg-[var(--primary)] group-hover:text-white">
                   {user.name?.charAt(0).toUpperCase()}
                 </div>
@@ -407,7 +414,11 @@ export default function UserLayout({
                 </div>
               </div>
             ) : (
-              <div className="flex justify-center mb-2 w-full">
+              <div 
+                onClick={() => setIsProfileModalOpen(true)}
+                className="flex justify-center mb-2 w-full cursor-pointer hover:opacity-80 transition-opacity"
+                title="Manage Profile"
+              >
                 <div className="h-10 w-10 shrink-0 rounded-none bg-[var(--surface-low)] text-[var(--primary)] flex items-center justify-center border border-[var(--outline-variant)] font-display font-bold text-base shadow-inner shadow-black/5">
                   {user.name?.charAt(0).toUpperCase()}
                 </div>
@@ -432,6 +443,11 @@ export default function UserLayout({
           {children}
         </div>
       </main>
+
+      <ManageProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
     </div>
   );
 }

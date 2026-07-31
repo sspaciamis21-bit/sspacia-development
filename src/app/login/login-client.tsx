@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
-import { Mail, Lock, ArrowRight, Loader2, LogIn, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Lock, ArrowRight, Loader2, LogIn, Eye, EyeOff, X, KeyRound } from 'lucide-react';
 import { SectionLabel } from '@/components/ui/section-label';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
@@ -16,10 +16,21 @@ export default function LoginClient() {
   const redirect = searchParams ? searchParams.get('redirect') : null;
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
+
+  // Forgot Password Modal State
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotData, setForgotData] = useState({
+    username: '',
+    email: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
 
   const { refreshUser } = useAuth();
 
@@ -27,13 +38,13 @@ export default function LoginClient() {
     e.preventDefault();
     setIsLoading(true);
 
-    const { email, password } = formData;
+    const { username, password } = formData;
 
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
@@ -63,10 +74,52 @@ export default function LoginClient() {
       router.refresh();
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { username, email, newPassword, confirmPassword } = forgotData;
+
+    if (!username.trim() || !email.trim() || !newPassword.trim()) {
+      toast.error('All fields are required');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+
+    setForgotLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          email: email.trim(),
+          newPassword: newPassword.trim(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to reset password');
+      }
+
+      toast.success(data.message || 'Password reset successfully!');
+      setShowForgotModal(false);
+      setForgotData({ username: '', email: '', newPassword: '', confirmPassword: '' });
+    } catch (err: any) {
+      toast.error(err.message || 'Something went wrong');
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -112,26 +165,35 @@ export default function LoginClient() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Username Input */}
             <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-tertiary ml-2">Email Address</label>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-tertiary ml-2">Username</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-tertiary group-focus-within:text-primary transition-colors">
-                  <Mail size={18} />
+                  <User size={18} />
                 </div>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="name@example.com"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  placeholder="e.g. muskan-marcado"
                   className="w-full rounded-none border-b-2 border-outline-variant/30 bg-surface-high pl-12 pr-4 py-4 text-sm outline-none transition-all focus:border-primary focus:bg-white text-on-surface placeholder:text-tertiary/50"
                 />
               </div>
             </div>
 
+            {/* Password Input */}
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-2 mr-2">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-tertiary">Password</label>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(true)}
+                  className="text-[10px] font-bold uppercase tracking-wider text-primary hover:underline transition-all"
+                >
+                  Forgot Password?
+                </button>
               </div>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-tertiary group-focus-within:text-primary transition-colors">
@@ -185,6 +247,140 @@ export default function LoginClient() {
           </div>
         </motion.div>
       </div>
+
+      {/* Forgot Password Modal */}
+      <AnimatePresence>
+        {showForgotModal && (
+          <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-md bg-white border border-outline-variant/30 shadow-2xl overflow-hidden rounded-none p-6 sm:p-8"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20">
+                <div className="flex items-center gap-2">
+                  <KeyRound size={20} className="text-primary" />
+                  <h3 className="font-display font-bold text-lg text-on-surface uppercase tracking-wider">
+                    Reset Password
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowForgotModal(false)}
+                  className="p-2 text-tertiary hover:text-on-surface hover:bg-surface-high transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className="text-xs text-tertiary mt-4 mb-6">
+                Enter your registered Username and Email ID to set a new password.
+              </p>
+
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                {/* Username */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-tertiary">
+                    Registered Username
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-tertiary">
+                      <User size={16} />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={forgotData.username}
+                      onChange={(e) => setForgotData({ ...forgotData, username: e.target.value })}
+                      placeholder="e.g. muskan-marcado"
+                      className="w-full border border-outline-variant/30 bg-surface-high pl-10 pr-3 py-2.5 text-sm outline-none focus:border-primary text-on-surface rounded-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Email ID */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-tertiary">
+                    Registered Email ID
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-tertiary">
+                      <Mail size={16} />
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      value={forgotData.email}
+                      onChange={(e) => setForgotData({ ...forgotData, email: e.target.value })}
+                      placeholder="cm@sspacia.com"
+                      className="w-full border border-outline-variant/30 bg-surface-high pl-10 pr-3 py-2.5 text-sm outline-none focus:border-primary text-on-surface rounded-none"
+                    />
+                  </div>
+                </div>
+
+                {/* New Password */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-tertiary">
+                    New Password
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-tertiary">
+                      <Lock size={16} />
+                    </div>
+                    <input
+                      type={showForgotNewPassword ? 'text' : 'password'}
+                      required
+                      value={forgotData.newPassword}
+                      onChange={(e) => setForgotData({ ...forgotData, newPassword: e.target.value })}
+                      placeholder="••••••••"
+                      className="w-full border border-outline-variant/30 bg-surface-high pl-10 pr-10 py-2.5 text-sm outline-none focus:border-primary text-on-surface rounded-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-tertiary hover:text-primary"
+                    >
+                      {showForgotNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-tertiary">
+                    Confirm New Password
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-tertiary">
+                      <Lock size={16} />
+                    </div>
+                    <input
+                      type={showForgotNewPassword ? 'text' : 'password'}
+                      required
+                      value={forgotData.confirmPassword}
+                      onChange={(e) => setForgotData({ ...forgotData, confirmPassword: e.target.value })}
+                      placeholder="••••••••"
+                      className="w-full border border-outline-variant/30 bg-surface-high pl-10 pr-3 py-2.5 text-sm outline-none focus:border-primary text-on-surface rounded-none"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3 px-4 font-bold text-xs uppercase tracking-widest hover:bg-primary-container disabled:opacity-50 transition-colors mt-6 rounded-none"
+                >
+                  {forgotLoading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    'Reset & Save Password'
+                  )}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -33,6 +33,7 @@ import {
 import { toast } from 'sonner';
 import { FadeUp } from '@/components/ui/fade-up';
 import { useAuth } from '@/context/AuthContext';
+import { useSidebar } from '@/context/SidebarContext';
 
 interface ContactPerson {
   id?: number;
@@ -87,6 +88,7 @@ const NOTICE_APPLICABLE_OPTIONS = ['After Lock-in', 'Before Lock-in'];
 
 export default function ClientMasterRegistryPage() {
   const { user, isRole } = useAuth();
+  const { setIsSidebarOpen } = useSidebar();
   const userRole = (user?.role || '').toUpperCase();
   const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'SUPER-ADMIN' || isRole('ADMIN');
   const isCommunityManager = isRole('COMMUNITY_MANAGER');
@@ -124,6 +126,13 @@ export default function ClientMasterRegistryPage() {
 
   // Big Popup Modal for Add Client / Edit Client
   const [showAddClientModal, setShowAddClientModal] = useState(false);
+
+  // Auto-collapse sidebar when Add/Edit modal is opened
+  useEffect(() => {
+    if (showAddClientModal) {
+      setIsSidebarOpen(false);
+    }
+  }, [showAddClientModal, setIsSidebarOpen]);
 
   // View Details Modal
   const [entryToViewDetails, setEntryToViewDetails] = useState<ClientMasterEntry | null>(null);

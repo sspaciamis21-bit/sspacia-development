@@ -9,19 +9,25 @@ const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { email, password } = body
+    const identifier = (body.username || body.email || '').trim()
+    const { password } = body
 
     // ─── Validate Fields ──────────────────────────────────
-    if (!email || !password) {
+    if (!identifier || !password) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: 'Username and password are required' },
         { status: 400 }
       )
     }
 
-    // ─── Find User ────────────────────────────────────────
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // ─── Find User by Username (name) OR Email ────────────
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { name: identifier },
+          { email: identifier },
+        ],
+      },
       include: {
         role: {
           include: {
@@ -38,7 +44,7 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json(
-        { error: 'Invalid email or password' },
+        { error: 'Invalid username or password' },
         { status: 401 }
       )
     }
@@ -56,7 +62,7 @@ export async function POST(request: Request) {
 
     if (!isPasswordValid) {
       return NextResponse.json(
-        { error: 'Invalid email or password' },
+        { error: 'Invalid username or password' },
         { status: 401 }
       )
     }
