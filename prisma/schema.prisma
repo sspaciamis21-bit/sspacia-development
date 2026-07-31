@@ -918,7 +918,7 @@ model ClientMaster {
   noticePeriodMonths     Int?
   noticePeriodApplicable String?                // "AFTER_LOCKIN" | "BEFORE_LOCKIN"
   escalationPercent      Decimal?               @db.Decimal(5, 2)
-  escalationApplicable   Decimal?               @db.Decimal(12, 2)
+  escalationApplicable   DateTime?
   cabinName              String?
   noOfSeats              Int?
   ratePerAgreement       Decimal?               @db.Decimal(12, 2)

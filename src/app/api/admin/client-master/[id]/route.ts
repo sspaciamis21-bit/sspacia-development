@@ -97,7 +97,7 @@ export async function PUT(
           noticePeriodMonths: noticePeriodMonths ? Number(noticePeriodMonths) : null,
           noticePeriodApplicable: noticePeriodApplicable ? String(noticePeriodApplicable) : null,
           escalationPercent: escalationPercent ? Number(escalationPercent) : null,
-          escalationApplicable: escalationApplicable ? Number(escalationApplicable) : null,
+          escalationApplicable: escalationApplicable ? new Date(escalationApplicable) : null,
           cabinName: cabinName ? String(cabinName).trim() : null,
           noOfSeats: noOfSeats ? Number(noOfSeats) : null,
           ratePerAgreement: ratePerAgreement ? Number(ratePerAgreement) : null,

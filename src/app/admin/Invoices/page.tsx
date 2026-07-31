@@ -1095,20 +1095,20 @@ export default function AdminInvoicesWorkflowPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="font-bold uppercase text-[#616161] text-[9px]">Escalation Applicable (Amt)</div>
+                    <div className="font-bold uppercase text-[#616161] text-[9px]">Escalation Applicable Date</div>
                     <div className="font-bold text-[#1B1C1C] mt-0.5">
                       {entryToViewDetails.clientMaster?.escalationApplicable
-                        ? `₹${Number(entryToViewDetails.clientMaster.escalationApplicable).toLocaleString('en-IN')}`
+                        ? new Date(entryToViewDetails.clientMaster.escalationApplicable).toLocaleDateString('en-IN')
                         : 'N/A'}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* SECTION 4: TDS & Security Deposit (SOR) */}
+              {/* SECTION 4: TDS & Security Deposit (SDR) */}
               <div className="space-y-2">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--primary)] flex items-center gap-1.5">
-                  <Tag size={14} /> TDS Deduction, TAN & Security Deposit (SOR)
+                  <Tag size={14} /> TDS Deduction, TAT & Security Deposit (SDR)
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/40">
                   <div>
@@ -1118,7 +1118,7 @@ export default function AdminInvoicesWorkflowPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="font-bold uppercase text-[#616161] text-[9px]">TAN Number</div>
+                    <div className="font-bold uppercase text-[#616161] text-[9px]">TAT Number</div>
                     <div className="font-mono font-bold text-[#1B1C1C] mt-0.5">
                       {entryToViewDetails.clientMaster?.tanNo || 'N/A'}
                     </div>
@@ -1130,14 +1130,14 @@ export default function AdminInvoicesWorkflowPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="font-bold uppercase text-[#616161] text-[9px]">Security Deposit (SOR)</div>
+                    <div className="font-bold uppercase text-[#616161] text-[9px]">Security Deposit (SDR)</div>
                     <div className="font-bold text-[#1B1C1C] mt-0.5">
                       {entryToViewDetails.clientMaster?.sorAmount
                         ? `₹${Number(entryToViewDetails.clientMaster.sorAmount).toLocaleString('en-IN')}`
                         : 'N/A'}
                       {entryToViewDetails.clientMaster?.sorRecdDate && (
                         <span className="text-[10px] text-neutral-500 font-normal block">
-                          Recd: {new Date(entryToViewDetails.clientMaster.sorRecdDate).toLocaleDateString('en-IN')}
+                          SDR Recd: {new Date(entryToViewDetails.clientMaster.sorRecdDate).toLocaleDateString('en-IN')}
                         </span>
                       )}
                     </div>

@@ -62,7 +62,7 @@ interface ClientMasterEntry {
   noticePeriodMonths: number | null;
   noticePeriodApplicable: string | null;
   escalationPercent: number | null;
-  escalationApplicable: number | null;
+  escalationApplicable: string | null;
   cabinName: string | null;
   noOfSeats: number | null;
   ratePerAgreement: number | null;
@@ -149,7 +149,7 @@ export default function ClientMasterRegistryPage() {
   const [noticePeriodApplicable, setNoticePeriodApplicable] = useState('After Lock-in');
 
   const [escalationPercent, setEscalationPercent] = useState<number | ''>('');
-  const [escalationApplicable, setEscalationApplicable] = useState<number | ''>('');
+  const [escalationApplicable, setEscalationApplicable] = useState('');
   const [cabinName, setCabinName] = useState('');
   const [noOfSeats, setNoOfSeats] = useState<number | ''>('');
   const [ratePerAgreement, setRatePerAgreement] = useState<number | ''>('');
@@ -289,11 +289,11 @@ export default function ClientMasterRegistryPage() {
         if (type === 'GST') {
           setGstPdfUrl(json.data.fileUrl);
           setGstPdfName(json.data.fileName);
-          toast.success('GST PDF uploaded successfully');
+          toast.success('GST Certificate uploaded successfully');
         } else {
           setTdsPdfUrl(json.data.fileUrl);
           setTdsPdfName(json.data.fileName);
-          toast.success('TDS PDF uploaded successfully');
+          toast.success('TAT Certificate uploaded successfully');
         }
       } else {
         toast.error(json.error || 'Upload failed');
@@ -375,7 +375,7 @@ export default function ClientMasterRegistryPage() {
     setNoticePeriodApplicable(entry.noticePeriodApplicable || 'After Lock-in');
 
     setEscalationPercent(entry.escalationPercent ?? '');
-    setEscalationApplicable(entry.escalationApplicable ?? '');
+    setEscalationApplicable(entry.escalationApplicable ? new Date(entry.escalationApplicable).toISOString().split('T')[0] : '');
     setCabinName(entry.cabinName || '');
     setNoOfSeats(entry.noOfSeats ?? '');
     setRatePerAgreement(entry.ratePerAgreement ?? '');
@@ -402,8 +402,18 @@ export default function ClientMasterRegistryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!clientId.trim()) {
+      toast.error('Please enter Client ID (Manual)');
+      return;
+    }
+
     if (!companyName.trim()) {
       toast.error('Please enter Company Name');
+      return;
+    }
+
+    if (!hoAddress.trim()) {
+      toast.error('Please enter Head Office (HO) Address');
       return;
     }
 
@@ -412,8 +422,68 @@ export default function ClientMasterRegistryPage() {
       return;
     }
 
+    if (contactPersons.some((cp) => !cp.name.trim() || !cp.designation.trim() || !cp.mobileNo.trim() || !cp.email.trim())) {
+      toast.error('Please fill in all Contact Person details');
+      return;
+    }
+
+    if (!agreementStartDate) {
+      toast.error('Please select Agreement Start Date');
+      return;
+    }
+
+    if (!agreementEndDate) {
+      toast.error('Please select Agreement End Date');
+      return;
+    }
+
+    if (!lockinEndDate) {
+      toast.error('Please select Lock-in End Date');
+      return;
+    }
+
+    if (typeof noticePeriodMonths !== 'number') {
+      toast.error('Please enter Notice Period (Months)');
+      return;
+    }
+
+    if (typeof escalationPercent !== 'number') {
+      toast.error('Please enter Escalation %');
+      return;
+    }
+
+    if (!escalationApplicable) {
+      toast.error('Please select Escalation Applicable Date');
+      return;
+    }
+
+    if (!cabinName.trim()) {
+      toast.error('Please enter Cabin Name');
+      return;
+    }
+
+    if (typeof noOfSeats !== 'number') {
+      toast.error('Please enter No of Seats');
+      return;
+    }
+
+    if (typeof ratePerAgreement !== 'number') {
+      toast.error('Please enter Rate as per Agreement');
+      return;
+    }
+
     if (willDeductTds && !tanNo.trim()) {
-      toast.error('Please enter TAN No when TDS deduction is Yes');
+      toast.error('Please enter TAT Number when TDS deduction is Yes');
+      return;
+    }
+
+    if (typeof sorAmount !== 'number') {
+      toast.error('Please enter SDR Amount');
+      return;
+    }
+
+    if (!sorRecdDate) {
+      toast.error('Please select SDR Received Date');
       return;
     }
 
@@ -429,22 +499,22 @@ export default function ClientMasterRegistryPage() {
       agreementStartDate: agreementStartDate || null,
       agreementEndDate: agreementEndDate || null,
       lockinEndDate: lockinEndDate || null,
-      noticePeriodMonths: noticePeriodMonths !== '' ? Number(noticePeriodMonths) : null,
+      noticePeriodMonths: typeof noticePeriodMonths === 'number' ? noticePeriodMonths : null,
       noticePeriodApplicable,
-      escalationPercent: escalationPercent !== '' ? Number(escalationPercent) : null,
-      escalationApplicable: escalationApplicable !== '' ? Number(escalationApplicable) : null,
+      escalationPercent: typeof escalationPercent === 'number' ? escalationPercent : null,
+      escalationApplicable: escalationApplicable || null,
       cabinName: cabinName.trim() || null,
-      noOfSeats: noOfSeats !== '' ? Number(noOfSeats) : null,
-      ratePerAgreement: ratePerAgreement !== '' ? Number(ratePerAgreement) : null,
-      amount: amount !== '' ? Number(amount) : null,
-      gstPercent: gstPercent !== '' ? Number(gstPercent) : null,
-      totalAmount: totalAmount !== '' ? Number(totalAmount) : null,
+      noOfSeats: typeof noOfSeats === 'number' ? noOfSeats : null,
+      ratePerAgreement: typeof ratePerAgreement === 'number' ? ratePerAgreement : null,
+      amount: typeof amount === 'number' ? amount : null,
+      gstPercent: typeof gstPercent === 'number' ? gstPercent : null,
+      totalAmount: typeof totalAmount === 'number' ? totalAmount : null,
       willDeductTds,
       tanNo: willDeductTds ? tanNo.trim() : null,
       tdsPdfUrl: willDeductTds ? tdsPdfUrl : null,
       tdsPdfName: willDeductTds ? tdsPdfName : null,
       clientId: clientId.trim() || null,
-      sorAmount: sorAmount !== '' ? Number(sorAmount) : null,
+      sorAmount: typeof sorAmount === 'number' ? sorAmount : null,
       sorRecdDate: sorRecdDate || null,
       clientStatus,
       contactPersons: contactPersons.filter((cp) => cp.name.trim() !== '')
@@ -975,19 +1045,21 @@ export default function ClientMasterRegistryPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                        SR. No (Automatic)
+                        Client ID (Manual) <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="text"
-                        value={`#${srNoDisplay}`}
-                        disabled
-                        className="w-full bg-neutral-100 border border-neutral-300 px-4 py-3 text-sm font-mono font-bold text-neutral-600"
+                        placeholder="e.g. CLT-2026-004"
+                        value={clientId}
+                        onChange={(e) => setClientId(e.target.value)}
+                        className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-mono font-bold"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                        Company Name *
+                        Company Name <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="text"
@@ -1001,7 +1073,7 @@ export default function ClientMasterRegistryPage() {
 
                     <div>
                       <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                        Head Office (HO) Address
+                        Head Office (HO) Address <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="text"
@@ -1009,6 +1081,7 @@ export default function ClientMasterRegistryPage() {
                         value={hoAddress}
                         onChange={(e) => setHoAddress(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064]"
+                        required
                       />
                     </div>
                   </div>
@@ -1023,15 +1096,16 @@ export default function ClientMasterRegistryPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/60">
                     <div>
                       <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                        GST Registration Status *
+                        GST Registration Status <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <select
                         value={gstStatus}
                         onChange={(e) => setGstStatus(e.target.value as 'REGISTERED' | 'UNREGISTERED')}
                         className="w-full bg-white border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-bold"
+                        required
                       >
-                        <option value="UNREGISTERED">Unregister (No GST required)</option>
-                        <option value="REGISTERED">Register (Enter GST & PDF)</option>
+                        <option value="UNREGISTERED">Unregistered</option>
+                        <option value="REGISTERED">Registered</option>
                       </select>
                     </div>
 
@@ -1039,7 +1113,7 @@ export default function ClientMasterRegistryPage() {
                       <>
                         <div>
                           <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                            GST Number *
+                            GST Number <span className="text-red-500 ml-0.5">*</span>
                           </label>
                           <input
                             type="text"
@@ -1053,7 +1127,7 @@ export default function ClientMasterRegistryPage() {
 
                         <div>
                           <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                            Attach GST PDF
+                            Attach GST CERTIFICATE <span className="text-red-500 ml-0.5">*</span>
                           </label>
                           <div className="flex items-center gap-2">
                             <input
@@ -1102,7 +1176,7 @@ export default function ClientMasterRegistryPage() {
                       >
                         <div className="md:col-span-3">
                           <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
-                            Contact Name #{idx + 1}
+                            Contact Name #{idx + 1} <span className="text-red-500 ml-0.5">*</span>
                           </label>
                           <input
                             type="text"
@@ -1110,12 +1184,13 @@ export default function ClientMasterRegistryPage() {
                             value={cp.name}
                             onChange={(e) => handleUpdateContactPerson(idx, 'name', e.target.value)}
                             className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
+                            required
                           />
                         </div>
 
                         <div className="md:col-span-3">
                           <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
-                            Designation
+                            Designation <span className="text-red-500 ml-0.5">*</span>
                           </label>
                           <input
                             type="text"
@@ -1123,12 +1198,13 @@ export default function ClientMasterRegistryPage() {
                             value={cp.designation}
                             onChange={(e) => handleUpdateContactPerson(idx, 'designation', e.target.value)}
                             className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
+                            required
                           />
                         </div>
 
                         <div className="md:col-span-3">
                           <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
-                            Mobile No.
+                            Mobile No. <span className="text-red-500 ml-0.5">*</span>
                           </label>
                           <input
                             type="text"
@@ -1136,12 +1212,13 @@ export default function ClientMasterRegistryPage() {
                             value={cp.mobileNo}
                             onChange={(e) => handleUpdateContactPerson(idx, 'mobileNo', e.target.value)}
                             className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
+                            required
                           />
                         </div>
 
                         <div className="md:col-span-2">
                           <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
-                            Email
+                            Email <span className="text-red-500 ml-0.5">*</span>
                           </label>
                           <input
                             type="email"
@@ -1149,6 +1226,7 @@ export default function ClientMasterRegistryPage() {
                             value={cp.email}
                             onChange={(e) => handleUpdateContactPerson(idx, 'email', e.target.value)}
                             className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
+                            required
                           />
                         </div>
 
@@ -1176,43 +1254,46 @@ export default function ClientMasterRegistryPage() {
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Agreement Start Date
+                        Agreement Start Date <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="date"
                         value={agreementStartDate}
                         onChange={(e) => setAgreementStartDate(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064]"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Agreement End Date
+                        Agreement End Date <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="date"
                         value={agreementEndDate}
                         onChange={(e) => setAgreementEndDate(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064]"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Lock-in End Date
+                        Lock-in End Date <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="date"
                         value={lockinEndDate}
                         onChange={(e) => setLockinEndDate(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064]"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Notice Period (Months)
+                        Notice Period (Months) <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="number"
@@ -1221,17 +1302,19 @@ export default function ClientMasterRegistryPage() {
                         value={noticePeriodMonths}
                         onChange={(e) => setNoticePeriodMonths(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Notice Applicable
+                        Notice Applicable <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <select
                         value={noticePeriodApplicable}
                         onChange={(e) => setNoticePeriodApplicable(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-medium"
+                        required
                       >
                         {NOTICE_APPLICABLE_OPTIONS.map((opt) => (
                           <option key={opt} value={opt}>
@@ -1252,7 +1335,7 @@ export default function ClientMasterRegistryPage() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Escalation %
+                        Escalation % <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="number"
@@ -1262,26 +1345,26 @@ export default function ClientMasterRegistryPage() {
                         value={escalationPercent}
                         onChange={(e) => setEscalationPercent(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Escalation Applicable (Amt)
+                        Escalation Applicable Date <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
-                        type="number"
-                        min="0"
-                        placeholder="Applicable amount..."
+                        type="date"
                         value={escalationApplicable}
-                        onChange={(e) => setEscalationApplicable(e.target.value === '' ? '' : Number(e.target.value))}
+                        onChange={(e) => setEscalationApplicable(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Cabin Name
+                        Cabin Name <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="text"
@@ -1289,12 +1372,13 @@ export default function ClientMasterRegistryPage() {
                         value={cabinName}
                         onChange={(e) => setCabinName(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-medium"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        No of Seats
+                        No of Seats <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="number"
@@ -1303,6 +1387,7 @@ export default function ClientMasterRegistryPage() {
                         value={noOfSeats}
                         onChange={(e) => setNoOfSeats(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
+                        required
                       />
                     </div>
                   </div>
@@ -1310,7 +1395,7 @@ export default function ClientMasterRegistryPage() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Rate as per Agreement (₹)
+                        Rate as per Agreement (₹) <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="number"
@@ -1319,13 +1404,14 @@ export default function ClientMasterRegistryPage() {
                         value={ratePerAgreement}
                         onChange={(e) => setRatePerAgreement(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold text-right"
+                        required
                       />
                     </div>
 
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="block font-bold uppercase text-[#616161]">
-                          Amount (Seats * Rate)
+                          Amount (Seats * Rate) <span className="text-red-500 ml-0.5">*</span>
                         </label>
                         {isAmountManuallyEdited && (
                           <button
@@ -1346,12 +1432,13 @@ export default function ClientMasterRegistryPage() {
                           setAmount(e.target.value === '' ? '' : Number(e.target.value));
                         }}
                         className="w-full bg-blue-50 border border-blue-200 px-3 py-2.5 text-xs focus:outline-none font-bold text-right text-blue-900"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        GST %
+                        GST % <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="number"
@@ -1360,13 +1447,14 @@ export default function ClientMasterRegistryPage() {
                         value={gstPercent}
                         onChange={(e) => setGstPercent(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
+                        required
                       />
                     </div>
 
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="block font-bold uppercase text-[#1B1C1C]">
-                          Total Amount (Amt + GST)
+                          Total Amount (Amt + GST) <span className="text-red-500 ml-0.5">*</span>
                         </label>
                         {isTotalAmountManuallyEdited && (
                           <button
@@ -1387,6 +1475,7 @@ export default function ClientMasterRegistryPage() {
                           setTotalAmount(e.target.value === '' ? '' : Number(e.target.value));
                         }}
                         className="w-full bg-emerald-50 border border-emerald-300 px-3 py-2.5 text-sm focus:outline-none font-black text-right text-emerald-800"
+                        required
                       />
                     </div>
                   </div>
@@ -1395,21 +1484,22 @@ export default function ClientMasterRegistryPage() {
                 {/* SECTION 6: TDS Deduction Options */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B1C1C] border-b border-neutral-200 pb-2">
-                    <Percent size={16} className="text-[#006064]" /> 6. TDS Deduction & TAN Attachment
+                    <Percent size={16} className="text-[#006064]" /> 6. TDS Deduction & TAT Attachment
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/60">
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1.5">
-                        Will Client Deduct TDS? *
+                        Will Client Deduct TDS? <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <select
                         value={willDeductTds ? 'YES' : 'NO'}
                         onChange={(e) => setWillDeductTds(e.target.value === 'YES')}
                         className="w-full bg-white border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-bold"
+                        required
                       >
-                        <option value="NO">No (Leave TDS details)</option>
-                        <option value="YES">Yes (Enter TAN No & PDF)</option>
+                        <option value="NO">No</option>
+                        <option value="YES">Yes</option>
                       </select>
                     </div>
 
@@ -1417,7 +1507,7 @@ export default function ClientMasterRegistryPage() {
                       <>
                         <div>
                           <label className="block font-bold uppercase text-[#616161] mb-1.5">
-                            TAN Number *
+                            TAT Number <span className="text-red-500 ml-0.5">*</span>
                           </label>
                           <input
                             type="text"
@@ -1431,7 +1521,7 @@ export default function ClientMasterRegistryPage() {
 
                         <div>
                           <label className="block font-bold uppercase text-[#616161] mb-1.5">
-                            Attach TDS PDF
+                            Attach TAT CERTIFICATE <span className="text-red-500 ml-0.5">*</span>
                           </label>
                           <div className="flex items-center gap-2">
                             <input
@@ -1457,29 +1547,16 @@ export default function ClientMasterRegistryPage() {
                   </div>
                 </div>
 
-                {/* SECTION 7: Client ID, SOR & Status */}
+                {/* SECTION 7: Security Deposit (SDR) & Status */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B1C1C] border-b border-neutral-200 pb-2">
-                    <Shield size={16} className="text-[#006064]" /> 7. Client ID, Security Deposit (SOR) & Status
+                    <Shield size={16} className="text-[#006064]" /> 7. Security Deposit (SDR) & Status
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Client ID (Manual)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. CLT-2026-004"
-                        value={clientId}
-                        onChange={(e) => setClientId(e.target.value)}
-                        className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-mono font-bold"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold uppercase text-[#616161] mb-1">
-                        SOR Amount (Security Deposit)
+                        SDR Amount (Security Deposit) <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="number"
@@ -1488,29 +1565,32 @@ export default function ClientMasterRegistryPage() {
                         value={sorAmount}
                         onChange={(e) => setSorAmount(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold text-right"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        SOR Received Date
+                        SDR Received Date <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <input
                         type="date"
                         value={sorRecdDate}
                         onChange={(e) => setSorRecdDate(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064]"
+                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Client Status
+                        Client Status <span className="text-red-500 ml-0.5">*</span>
                       </label>
                       <select
                         value={clientStatus}
                         onChange={(e) => setClientStatus(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
+                        required
                       >
                         {CLIENT_STATUS_OPTIONS.map((st) => (
                           <option key={st} value={st}>
@@ -1615,7 +1695,7 @@ export default function ClientMasterRegistryPage() {
                       rel="noopener noreferrer"
                       className="text-[10px] text-[#006064] font-bold hover:underline flex items-center gap-1 mt-1"
                     >
-                      <Download size={10} /> Download GST PDF
+                      <Download size={10} /> Download GST Certificate
                     </a>
                   )}
                 </div>
@@ -1717,13 +1797,13 @@ export default function ClientMasterRegistryPage() {
                 </div>
               </div>
 
-              {/* TDS & SOR Details */}
+              {/* TDS & SDR Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/40">
                 <div>
-                  <div className="font-bold uppercase text-[#616161] text-[10px]">TDS Deduction & TAN</div>
+                  <div className="font-bold uppercase text-[#616161] text-[10px]">TDS Deduction & TAT</div>
                   <div className="font-bold text-[#1B1C1C] mt-0.5">
                     {entryToViewDetails.willDeductTds ? (
-                      <span className="text-blue-800">TDS Yes - TAN: {entryToViewDetails.tanNo || 'N/A'}</span>
+                      <span className="text-blue-800">TDS Yes - TAT: {entryToViewDetails.tanNo || 'N/A'}</span>
                     ) : (
                       <span className="text-neutral-500">TDS Deduction No</span>
                     )}
@@ -1735,19 +1815,19 @@ export default function ClientMasterRegistryPage() {
                       rel="noopener noreferrer"
                       className="text-[10px] text-[#006064] font-bold hover:underline flex items-center gap-1 mt-1"
                     >
-                      <Download size={10} /> Download TDS PDF
+                      <Download size={10} /> Download TAT Certificate
                     </a>
                   )}
                 </div>
 
                 <div>
-                  <div className="font-bold uppercase text-[#616161] text-[10px]">Security Deposit (SOR)</div>
+                  <div className="font-bold uppercase text-[#616161] text-[10px]">Security Deposit (SDR)</div>
                   <div className="font-bold text-[#1B1C1C] mt-0.5">
                     Amount: ₹{Number(entryToViewDetails.sorAmount || 0).toLocaleString('en-IN')}
                   </div>
                   {entryToViewDetails.sorRecdDate && (
                     <div className="text-neutral-600 text-[10px]">
-                      Recd Date: {new Date(entryToViewDetails.sorRecdDate).toLocaleDateString('en-IN')}
+                      SDR Recd Date: {new Date(entryToViewDetails.sorRecdDate).toLocaleDateString('en-IN')}
                     </div>
                   )}
                 </div>
