@@ -99,7 +99,7 @@ export default function AdminDashboardPage() {
       .then((json) => {
         if (json.data) setRecentProducts(json.data.slice(0, 5));
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setProductsLoading(false));
   };
 
@@ -110,7 +110,7 @@ export default function AdminDashboardPage() {
       .then((json) => {
         if (json.data) setStats(json.data);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setStatsLoading(false));
 
     // Fetch recent products (last 5)
@@ -175,7 +175,7 @@ export default function AdminDashboardPage() {
             <LayoutDashboard size={40} />
           </div>
           <div>
-            <h1 className="text-4xl font-display font-black text-[#1B1C1C] tracking-tighter uppercase">Command Center</h1>
+            <h1 className="text-4xl font-display font-black text-[#1B1C1C] tracking-tighter uppercase">Command--Center</h1>
             <p className="text-[#616161] font-bold text-[11px] uppercase tracking-widest mt-1 opacity-60 italic">System overview and node verification</p>
           </div>
         </div>
@@ -206,128 +206,128 @@ export default function AdminDashboardPage() {
             </div>
 
             {productsLoading ? (
-               <div className="flex-1 flex flex-col items-center justify-center p-20 py-24">
-                  <Loader2 className="h-10 w-10 text-[var(--primary)] animate-spin mb-4" />
-                  <p className="text-[10px] font-black text-[#1B1C1C] uppercase tracking-[0.3em] animate-pulse italic">Scanning Asset Database...</p>
-               </div>
+              <div className="flex-1 flex flex-col items-center justify-center p-20 py-24">
+                <Loader2 className="h-10 w-10 text-[var(--primary)] animate-spin mb-4" />
+                <p className="text-[10px] font-black text-[#1B1C1C] uppercase tracking-[0.3em] animate-pulse italic">Scanning Asset Database...</p>
+              </div>
             ) : recentProducts.length === 0 ? (
-               <div className="flex-1 flex flex-col items-center justify-center p-20">
-                  <p className="text-[10px] font-black text-[#616161] uppercase tracking-[0.3em] opacity-40">No records found</p>
-               </div>
+              <div className="flex-1 flex flex-col items-center justify-center p-20">
+                <p className="text-[10px] font-black text-[#616161] uppercase tracking-[0.3em] opacity-40">No records found</p>
+              </div>
             ) : (
-                <div className="overflow-x-auto">
-                   <table className="w-full text-left">
-                     <thead>
-                       <tr className="bg-neutral-50/50 border-b border-[var(--outline-variant)]/20">
-                         <th className="px-8 py-4 text-[9px] font-black text-[#9E9E9E] uppercase tracking-widest">Asset Name</th>
-                         <th className="px-8 py-4 text-[9px] font-black text-[#9E9E9E] uppercase tracking-widest">Type</th>
-                         <th className="px-8 py-4 text-[9px] font-black text-[#9E9E9E] uppercase tracking-widest">Node</th>
-                         <th className="px-8 py-4 text-[9px] font-black text-[#9E9E9E] uppercase tracking-widest text-right">Status</th>
-                       </tr>
-                     </thead>
-                     <tbody className="divide-y divide-[var(--outline-variant)]/20">
-                       {recentProducts.map((product) => (
-                         <motion.tr
-                           key={product.id}
-                           initial={{ opacity: 0 }}
-                           animate={{ opacity: 1 }}
-                           className="hover:bg-neutral-50 transition-colors group"
-                         >
-                           <td className="px-8 py-5">
-                             <p className="text-xs font-black text-[#1B1B1B] uppercase tracking-wider group-hover:text-[var(--primary)]">{product.name}</p>
-                           </td>
-                           <td className="px-8 py-5">
-                             <span className="text-[8px] font-black bg-neutral-100 text-[#1B1B1B] px-2 py-1 uppercase tracking-widest">{product.type?.name ? TYPE_LABELS[product.type.name] || product.type.name : 'N/A'}</span>
-                           </td>
-                           <td className="px-8 py-5 text-[10px] uppercase font-bold text-[#616161]">{product.location.name}</td>
-                           <td className="px-8 py-5 text-right">
-                             <div className={`h-1.5 w-1.5 rounded-none inline-block mr-2 ${product.isActive ? 'bg-[#4DB6AC]' : 'bg-red-400'}`} />
-                             <span className={`text-[9px] font-black uppercase tracking-widest ${product.isActive ? 'text-[#4DB6AC]' : 'text-red-400'}`}>{product.isActive ? 'Active' : 'Inactive'}</span>
-                           </td>
-                         </motion.tr>
-                       ))}
-                     </tbody>
-                   </table>
-                </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-neutral-50/50 border-b border-[var(--outline-variant)]/20">
+                      <th className="px-8 py-4 text-[9px] font-black text-[#9E9E9E] uppercase tracking-widest">Asset Name</th>
+                      <th className="px-8 py-4 text-[9px] font-black text-[#9E9E9E] uppercase tracking-widest">Type</th>
+                      <th className="px-8 py-4 text-[9px] font-black text-[#9E9E9E] uppercase tracking-widest">Node</th>
+                      <th className="px-8 py-4 text-[9px] font-black text-[#9E9E9E] uppercase tracking-widest text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--outline-variant)]/20">
+                    {recentProducts.map((product) => (
+                      <motion.tr
+                        key={product.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="hover:bg-neutral-50 transition-colors group"
+                      >
+                        <td className="px-8 py-5">
+                          <p className="text-xs font-black text-[#1B1B1B] uppercase tracking-wider group-hover:text-[var(--primary)]">{product.name}</p>
+                        </td>
+                        <td className="px-8 py-5">
+                          <span className="text-[8px] font-black bg-neutral-100 text-[#1B1B1B] px-2 py-1 uppercase tracking-widest">{product.type?.name ? TYPE_LABELS[product.type.name] || product.type.name : 'N/A'}</span>
+                        </td>
+                        <td className="px-8 py-5 text-[10px] uppercase font-bold text-[#616161]">{product.location.name}</td>
+                        <td className="px-8 py-5 text-right">
+                          <div className={`h-1.5 w-1.5 rounded-none inline-block mr-2 ${product.isActive ? 'bg-[#4DB6AC]' : 'bg-red-400'}`} />
+                          <span className={`text-[9px] font-black uppercase tracking-widest ${product.isActive ? 'text-[#4DB6AC]' : 'text-red-400'}`}>{product.isActive ? 'Active' : 'Inactive'}</span>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </FadeUp>
 
         {/* Agreement & Identity Status */}
         <FadeUp delay={0.45} className="lg:col-span-8">
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-[var(--outline-variant)]/20 border border-[var(--outline-variant)]/40 shadow-xl">
-              <div className="bg-white p-10 flex flex-col h-full">
-                 <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-3">
-                       <div className="h-1.5 w-6 bg-indigo-600"></div>
-                       <h3 className="text-[10px] font-black text-[#1B1C1C] uppercase tracking-[0.3em]">Agreement Registry</h3>
-                    </div>
-                    <Link href="/manager/contracts" className="text-[9px] font-bold text-[var(--primary)] uppercase tracking-widest">Open Center</Link>
-                 </div>
-                 <div className="flex-1 flex flex-col items-center justify-center py-10 border border-dashed border-neutral-100">
-                    <ShieldCheck size={32} className="text-[var(--primary)] opacity-20 mb-4" />
-                    <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#9E9E9E]">Legal Protocol Matrix Active</p>
-                 </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-[var(--outline-variant)]/20 border border-[var(--outline-variant)]/40 shadow-xl">
+            <div className="bg-white p-10 flex flex-col h-full">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="h-1.5 w-6 bg-indigo-600"></div>
+                  <h3 className="text-[10px] font-black text-[#1B1C1C] uppercase tracking-[0.3em]">Agreement Registry</h3>
+                </div>
+                <Link href="/manager/contracts" className="text-[9px] font-bold text-[var(--primary)] uppercase tracking-widest">Open Center</Link>
               </div>
-              <div className="bg-white p-10 flex flex-col h-full">
-                 <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-3">
-                       <div className="h-1.5 w-6 bg-amber-500"></div>
-                       <h3 className="text-[10px] font-black text-[#1B1C1C] uppercase tracking-[0.3em]">Identity Queue</h3>
-                    </div>
-                    <Link href="/manager/documents" className="text-[9px] font-bold text-[var(--primary)] uppercase tracking-widest">Open Center</Link>
-                 </div>
-                 <div className="flex-1 flex flex-col items-center justify-center py-10 border border-dashed border-neutral-100">
-                    <FileText size={32} className="text-[var(--primary)] opacity-20 mb-4" />
-                    <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#9E9E9E]">Verification Engine Syncing</p>
-                 </div>
+              <div className="flex-1 flex flex-col items-center justify-center py-10 border border-dashed border-neutral-100">
+                <ShieldCheck size={32} className="text-[var(--primary)] opacity-20 mb-4" />
+                <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#9E9E9E]">Legal Protocol Matrix Active</p>
               </div>
             </div>
-         </FadeUp>
-
-         {/* Invoices & Billing Section */}
-         <FadeUp delay={0.48} className="lg:col-span-8">
-            <div className="bg-white p-10 border border-[var(--outline-variant)]/40 shadow-xl flex flex-col h-full space-y-6">
-               <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                     <div className="h-1.5 w-6 bg-[var(--primary)]"></div>
-                     <h3 className="text-[10px] font-black text-[#1B1C1C] uppercase tracking-[0.3em]">Invoices & Billing Workflow</h3>
-                  </div>
-                  <Link href="/admin/Invoices" className="text-[9px] font-bold text-[var(--primary)] uppercase tracking-widest hover:underline">
-                     Open Billing Hub →
-                  </Link>
-               </div>
-
-               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                  <div className="p-3 bg-neutral-50 border border-neutral-200">
-                     <div className="text-[9px] font-bold uppercase tracking-wider text-neutral-500">CM Entries</div>
-                     <div className="text-lg font-black text-[#1B1C1C] mt-0.5">Active</div>
-                  </div>
-                  <div className="p-3 bg-blue-50/50 border border-blue-200">
-                     <div className="text-[9px] font-bold uppercase tracking-wider text-blue-700">Accountant</div>
-                     <div className="text-lg font-black text-blue-800 mt-0.5">Tally Sync</div>
-                  </div>
-                  <div className="p-3 bg-amber-50/50 border border-amber-200">
-                     <div className="text-[9px] font-bold uppercase tracking-wider text-amber-700">PDF Verification</div>
-                     <div className="text-lg font-black text-amber-800 mt-0.5">Pending</div>
-                  </div>
-                  <div className="p-3 bg-emerald-50/50 border border-emerald-200">
-                     <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-700">Approvals</div>
-                     <div className="text-lg font-black text-emerald-800 mt-0.5">Finalized</div>
-                  </div>
-               </div>
-
-               <div className="flex-1 flex flex-col sm:flex-row items-center justify-between p-5 bg-neutral-50 border border-[var(--outline-variant)]/20 gap-4">
-                  <div className="space-y-1 text-center sm:text-left">
-                     <p className="text-xs font-bold text-[#1B1C1C]">Collaborative CM & Accountant Lifecycle</p>
-                     <p className="text-[11px] text-[#616161] font-light">Community Manager creates entries, Accountant attaches Tally PDF invoices, and CM reviews with revision feedback.</p>
-                  </div>
-                  <Link href="/admin/Invoices" className="px-5 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1B1B1B] transition-colors shrink-0">
-                     Launch Invoices Hub
-                  </Link>
-               </div>
+            <div className="bg-white p-10 flex flex-col h-full">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="h-1.5 w-6 bg-amber-500"></div>
+                  <h3 className="text-[10px] font-black text-[#1B1C1C] uppercase tracking-[0.3em]">Identity Queue</h3>
+                </div>
+                <Link href="/manager/documents" className="text-[9px] font-bold text-[var(--primary)] uppercase tracking-widest">Open Center</Link>
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-center py-10 border border-dashed border-neutral-100">
+                <FileText size={32} className="text-[var(--primary)] opacity-20 mb-4" />
+                <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-[#9E9E9E]">Verification Engine Syncing</p>
+              </div>
             </div>
-         </FadeUp>
+          </div>
+        </FadeUp>
+
+        {/* Invoices & Billing Section */}
+        <FadeUp delay={0.48} className="lg:col-span-8">
+          <div className="bg-white p-10 border border-[var(--outline-variant)]/40 shadow-xl flex flex-col h-full space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-1.5 w-6 bg-[var(--primary)]"></div>
+                <h3 className="text-[10px] font-black text-[#1B1C1C] uppercase tracking-[0.3em]">Invoices & Billing Workflow</h3>
+              </div>
+              <Link href="/admin/Invoices" className="text-[9px] font-bold text-[var(--primary)] uppercase tracking-widest hover:underline">
+                Open Billing Hub →
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+              <div className="p-3 bg-neutral-50 border border-neutral-200">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-neutral-500">CM Entries</div>
+                <div className="text-lg font-black text-[#1B1C1C] mt-0.5">Active</div>
+              </div>
+              <div className="p-3 bg-blue-50/50 border border-blue-200">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-blue-700">Accountant</div>
+                <div className="text-lg font-black text-blue-800 mt-0.5">Tally Sync</div>
+              </div>
+              <div className="p-3 bg-amber-50/50 border border-amber-200">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-amber-700">PDF Verification</div>
+                <div className="text-lg font-black text-amber-800 mt-0.5">Pending</div>
+              </div>
+              <div className="p-3 bg-emerald-50/50 border border-emerald-200">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-700">Approvals</div>
+                <div className="text-lg font-black text-emerald-800 mt-0.5">Finalized</div>
+              </div>
+            </div>
+
+            <div className="flex-1 flex flex-col sm:flex-row items-center justify-between p-5 bg-neutral-50 border border-[var(--outline-variant)]/20 gap-4">
+              <div className="space-y-1 text-center sm:text-left">
+                <p className="text-xs font-bold text-[#1B1C1C]">Collaborative CM & Accountant Lifecycle</p>
+                <p className="text-[11px] text-[#616161] font-light">Community Manager creates entries, Accountant attaches Tally PDF invoices, and CM reviews with revision feedback.</p>
+              </div>
+              <Link href="/admin/Invoices" className="px-5 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#1B1B1B] transition-colors shrink-0">
+                Launch Invoices Hub
+              </Link>
+            </div>
+          </div>
+        </FadeUp>
 
         {/* Quick Actions */}
         <FadeUp delay={0.5} className="lg:col-span-4">
