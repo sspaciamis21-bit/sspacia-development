@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/jwt';
+import prisma from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
@@ -11,19 +12,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token')?.value;
+    let userId = 1;
+
+    if (token) {
+      const payload = await verifyToken(token);
+      if (payload?.id) {
+        userId = Number(payload.id);
+      }
+    }
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
     const fileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const uniqueName = `invoice_${Date.now()}_${fileName}`;
 
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'invoices');
-    await mkdir(uploadDir, { recursive: true });
+    // Store directly in database for serverless (Vercel / Hostinger) compatibility
+    const storedDoc = await (prisma as any).storedDocument.create({
+      data: {
+        fileName,
+        mimeType: file.type || 'application/pdf',
+        fileData: buffer,
+        fileSize: file.size,
+        uploadedById: userId,
+      },
+    });
 
-    const filePath = path.join(uploadDir, uniqueName);
-    await writeFile(filePath, buffer);
-
-    const fileUrl = `/uploads/invoices/${uniqueName}`;
+    const fileUrl = `/api/admin/stored-documents/${storedDoc.id}`;
 
     return NextResponse.json({
       success: true,

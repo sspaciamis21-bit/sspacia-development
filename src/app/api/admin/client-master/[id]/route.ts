@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { mapClientMasterPayload } from '@/lib/client-master-payload';
 
 export async function GET(
   request: Request,
@@ -14,6 +15,7 @@ export async function GET(
       include: {
         createdBy: { select: { id: true, name: true, email: true } },
         contactPersons: { orderBy: { sortOrder: 'asc' } },
+        products: { orderBy: { sortOrder: 'asc' } },
         attachedInvoice: true,
       },
     });
@@ -38,36 +40,8 @@ export async function PUT(
     const entryId = Number(id);
 
     const body = await request.json();
-    const {
-      companyName,
-      hoAddress,
-      gstStatus = 'UNREGISTERED',
-      gstNo,
-      gstPdfUrl,
-      gstPdfName,
-      agreementStartDate,
-      agreementEndDate,
-      lockinEndDate,
-      noticePeriodMonths,
-      noticePeriodApplicable,
-      escalationPercent,
-      escalationApplicable,
-      cabinName,
-      noOfSeats,
-      ratePerAgreement,
-      amount,
-      gstPercent,
-      totalAmount,
-      willDeductTds = false,
-      tanNo,
-      tdsPdfUrl,
-      tdsPdfName,
-      clientId,
-      sorAmount,
-      sorRecdDate,
-      clientStatus = 'Active',
-      contactPersons = [],
-    } = body;
+    const mapped = mapClientMasterPayload(body);
+    const { contactPersons, products, ...clientData } = mapped;
 
     const existing = await (prisma as any).clientMaster.findUnique({
       where: { id: entryId },
@@ -81,37 +55,14 @@ export async function PUT(
       await tx.clientContactPerson.deleteMany({
         where: { clientMasterId: entryId },
       });
+      await tx.clientMasterProduct.deleteMany({
+        where: { clientMasterId: entryId },
+      });
 
       return tx.clientMaster.update({
         where: { id: entryId },
         data: {
-          companyName: String(companyName).trim(),
-          hoAddress: hoAddress ? String(hoAddress).trim() : null,
-          gstStatus: String(gstStatus),
-          gstNo: gstStatus === 'REGISTERED' && gstNo ? String(gstNo).trim() : null,
-          gstPdfUrl: gstStatus === 'REGISTERED' ? gstPdfUrl || null : null,
-          gstPdfName: gstStatus === 'REGISTERED' ? gstPdfName || null : null,
-          agreementStartDate: agreementStartDate ? new Date(agreementStartDate) : null,
-          agreementEndDate: agreementEndDate ? new Date(agreementEndDate) : null,
-          lockinEndDate: lockinEndDate ? new Date(lockinEndDate) : null,
-          noticePeriodMonths: noticePeriodMonths ? Number(noticePeriodMonths) : null,
-          noticePeriodApplicable: noticePeriodApplicable ? String(noticePeriodApplicable) : null,
-          escalationPercent: escalationPercent ? Number(escalationPercent) : null,
-          escalationApplicable: escalationApplicable ? new Date(escalationApplicable) : null,
-          cabinName: cabinName ? String(cabinName).trim() : null,
-          noOfSeats: noOfSeats ? Number(noOfSeats) : null,
-          ratePerAgreement: ratePerAgreement ? Number(ratePerAgreement) : null,
-          amount: amount ? Number(amount) : null,
-          gstPercent: gstPercent ? Number(gstPercent) : null,
-          totalAmount: totalAmount ? Number(totalAmount) : null,
-          willDeductTds: Boolean(willDeductTds),
-          tanNo: willDeductTds && tanNo ? String(tanNo).trim() : null,
-          tdsPdfUrl: willDeductTds ? tdsPdfUrl || null : null,
-          tdsPdfName: willDeductTds ? tdsPdfName || null : null,
-          clientId: clientId ? String(clientId).trim() : null,
-          sorAmount: sorAmount ? Number(sorAmount) : null,
-          sorRecdDate: sorRecdDate ? new Date(sorRecdDate) : null,
-          clientStatus: clientStatus ? String(clientStatus) : 'Active',
+          ...clientData,
           contactPersons: {
             create: contactPersons.map((cp: any, idx: number) => ({
               name: String(cp.name || '').trim(),
@@ -121,10 +72,14 @@ export async function PUT(
               sortOrder: idx,
             })),
           },
+          products: {
+            create: products,
+          },
         },
         include: {
           createdBy: { select: { id: true, name: true, email: true } },
           contactPersons: true,
+          products: { orderBy: { sortOrder: 'asc' } },
           attachedInvoice: true,
         },
       });

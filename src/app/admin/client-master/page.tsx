@@ -19,8 +19,6 @@ import {
   RefreshCw,
   Send,
   Eye,
-  UserCheck,
-  Paperclip,
   UserPlus,
   Percent,
   Download,
@@ -28,12 +26,27 @@ import {
   Square,
   Clock,
   Shield,
-  FileText
+  FileText,
+  Paperclip,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FadeUp } from '@/components/ui/fade-up';
 import { useAuth } from '@/context/AuthContext';
 import { useSidebar } from '@/context/SidebarContext';
+import {
+  DEFAULT_CLIENT_ID_PREFIX,
+  isParkingProduct,
+  roundCurrency,
+  computeProductAmount,
+  computeProductTotal,
+  validateMobile,
+  sanitizeMobileInput,
+  validateEmail,
+  buildHoAddress,
+  ProductRow,
+  createEmptyProductRow
+} from '@/lib/client-master-utils';
 
 interface ContactPerson {
   id?: number;
@@ -48,22 +61,41 @@ interface LocationOption {
   name: string;
 }
 
+interface ClientMasterProductItem {
+  id?: number;
+  cabinName: string | null;
+  noOfSeats: number | null;
+  ratePerAgreement: number | null;
+  amount: number | null;
+  gstPercent: number | null;
+  totalAmount: number | null;
+}
+
 interface ClientMasterEntry {
   id: number;
   srNo: number;
   companyName: string;
   hoAddress: string | null;
+  hoAddressLine1?: string | null;
+  hoAddressLine2?: string | null;
+  hoCity?: string | null;
+  hoState?: string | null;
+  hoCountry?: string | null;
+  hoPinCode?: string | null;
   gstStatus: 'REGISTERED' | 'UNREGISTERED';
   gstNo: string | null;
   gstPdfUrl: string | null;
   gstPdfName: string | null;
   agreementStartDate: string | null;
   agreementEndDate: string | null;
+  agreementPdfUrl?: string | null;
+  agreementPdfName?: string | null;
   lockinEndDate: string | null;
   noticePeriodMonths: number | null;
   noticePeriodApplicable: string | null;
   escalationPercent: number | null;
   escalationApplicable: string | null;
+  documentationCharges?: number | null;
   cabinName: string | null;
   noOfSeats: number | null;
   ratePerAgreement: number | null;
@@ -75,12 +107,17 @@ interface ClientMasterEntry {
   tdsPdfUrl: string | null;
   tdsPdfName: string | null;
   clientId: string | null;
+  hasBrokerCommission?: boolean;
+  brokerCommissionPercent?: number | null;
+  invoiceToBeRaised?: string | null;
   sorAmount: number | null;
   sorRecdDate: string | null;
+  paymentDueDay?: number | null;
   clientStatus: string | null;
   createdAt: string;
   createdBy: { id: number; name: string; email: string; assignedLocations?: { location: LocationOption }[] };
   contactPersons: ContactPerson[];
+  products?: ClientMasterProductItem[];
 }
 
 const CLIENT_STATUS_OPTIONS = ['Active', 'Inactive', 'On Notice', 'Terminated', 'Pending Renewal'];
@@ -139,74 +176,191 @@ export default function ClientMasterRegistryPage() {
 
   // ---------------- FORM STATE ----------------
   const [srNoDisplay, setSrNoDisplay] = useState<number>(1);
+  const [clientId, setClientId] = useState(DEFAULT_CLIENT_ID_PREFIX);
+
+  // Brokerage Commission Options
+  const [hasBrokerCommission, setHasBrokerCommission] = useState(false);
+  const [brokerCommissionPercent, setBrokerCommissionPercent] = useState<number | ''>('');
+  const [invoiceToBeRaised, setInvoiceToBeRaised] = useState('CLIENT');
+
+  // Primary Company Details
   const [companyName, setCompanyName] = useState('');
-  const [hoAddress, setHoAddress] = useState('');
+  const [hoAddressLine1, setHoAddressLine1] = useState('');
+  const [hoAddressLine2, setHoAddressLine2] = useState('');
+  const [hoCity, setHoCity] = useState('');
+  const [hoState, setHoState] = useState('');
+  const [hoCountry, setHoCountry] = useState('');
+  const [hoPinCode, setHoPinCode] = useState('');
+
+  // GST
   const [gstStatus, setGstStatus] = useState<'REGISTERED' | 'UNREGISTERED'>('UNREGISTERED');
   const [gstNo, setGstNo] = useState('');
   const [gstPdfUrl, setGstPdfUrl] = useState('');
   const [gstPdfName, setGstPdfName] = useState('');
   const [uploadingGstPdf, setUploadingGstPdf] = useState(false);
 
+  // Contact Persons
   const [contactPersons, setContactPersons] = useState<ContactPerson[]>([
     { name: '', designation: '', mobileNo: '', email: '' }
   ]);
 
+  // Agreement Terms & Attachment
   const [agreementStartDate, setAgreementStartDate] = useState('');
   const [agreementEndDate, setAgreementEndDate] = useState('');
+  const [agreementPdfUrl, setAgreementPdfUrl] = useState('');
+  const [agreementPdfName, setAgreementPdfName] = useState('');
+  const [uploadingAgreementPdf, setUploadingAgreementPdf] = useState(false);
+
   const [lockinEndDate, setLockinEndDate] = useState('');
   const [noticePeriodMonths, setNoticePeriodMonths] = useState<number | ''>('');
   const [noticePeriodApplicable, setNoticePeriodApplicable] = useState('After Lock-in');
 
+  // Escalation % and Applicable Date (Separate section)
   const [escalationPercent, setEscalationPercent] = useState<number | ''>('');
   const [escalationApplicable, setEscalationApplicable] = useState('');
-  const [cabinName, setCabinName] = useState('');
-  const [noOfSeats, setNoOfSeats] = useState<number | ''>('');
-  const [ratePerAgreement, setRatePerAgreement] = useState<number | ''>('');
+  const [documentationCharges, setDocumentationCharges] = useState<number | ''>('');
 
-  const [amount, setAmount] = useState<number | ''>('');
-  const [isAmountManuallyEdited, setIsAmountManuallyEdited] = useState(false);
+  // Multi-Product Row State
+  const [productRows, setProductRows] = useState<ProductRow[]>([createEmptyProductRow()]);
 
-  const [gstPercent, setGstPercent] = useState<number | ''>(18);
-  const [totalAmount, setTotalAmount] = useState<number | ''>('');
-  const [isTotalAmountManuallyEdited, setIsTotalAmountManuallyEdited] = useState(false);
+  // Master product options list (Invoice Products)
+  const [availableProducts, setAvailableProducts] = useState<string[]>([]);
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [newProductName, setNewProductName] = useState('');
+  const [addingProduct, setAddingProduct] = useState(false);
 
+  // TDS
   const [willDeductTds, setWillDeductTds] = useState(false);
   const [tanNo, setTanNo] = useState('');
   const [tdsPdfUrl, setTdsPdfUrl] = useState('');
   const [tdsPdfName, setTdsPdfName] = useState('');
   const [uploadingTdsPdf, setUploadingTdsPdf] = useState(false);
 
-  const [clientId, setClientId] = useState('');
+  // Security Deposit & Payment Due
   const [sorAmount, setSorAmount] = useState<number | ''>('');
   const [sorRecdDate, setSorRecdDate] = useState('');
+  const [paymentDueDay, setPaymentDueDay] = useState<number | ''>('');
   const [clientStatus, setClientStatus] = useState('Active');
 
-  // Compute Auto Amount (seats * rate)
-  const computedAmount = useMemo(() => {
-    const seats = Number(noOfSeats) || 0;
-    const rate = Number(ratePerAgreement) || 0;
-    return seats * rate;
-  }, [noOfSeats, ratePerAgreement]);
+  // Fetch available products from DB
+  const fetchAvailableProducts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/invoice-products');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setAvailableProducts(json.data.map((p: any) => p.name));
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
-    if (!isAmountManuallyEdited) {
-      setAmount(computedAmount);
-    }
-  }, [computedAmount, isAmountManuallyEdited]);
+    fetchAvailableProducts();
+  }, [fetchAvailableProducts]);
 
-  // Compute Auto Total Amount (Amount + GST %)
-  const computedTotalAmount = useMemo(() => {
-    const baseAmt = Number(amount) || 0;
-    const gstPct = Number(gstPercent) || 0;
-    const gstVal = (baseAmt * gstPct) / 100;
-    return Math.round((baseAmt + gstVal) * 100) / 100;
-  }, [amount, gstPercent]);
-
-  useEffect(() => {
-    if (!isTotalAmountManuallyEdited) {
-      setTotalAmount(computedTotalAmount);
+  // Add new product to DB dynamically
+  const handleAddNewProductOption = async () => {
+    if (!newProductName.trim()) {
+      toast.error('Please enter product name');
+      return;
     }
-  }, [computedTotalAmount, isTotalAmountManuallyEdited]);
+    setAddingProduct(true);
+    try {
+      const res = await fetch('/api/admin/invoice-products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newProductName.trim() }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`Product "${newProductName.trim()}" added!`);
+        setNewProductName('');
+        setShowAddProductModal(false);
+        fetchAvailableProducts();
+      } else {
+        toast.error(json.error || 'Failed to add product option');
+      }
+    } catch {
+      toast.error('Error adding product option');
+    } finally {
+      setAddingProduct(false);
+    }
+  };
+
+  // Product Row Handlers & Auto Rounding
+  const handleAddProductRow = () => {
+    setProductRows((prev) => [...prev, createEmptyProductRow()]);
+  };
+
+  const handleRemoveProductRow = (index: number) => {
+    if (productRows.length === 1) {
+      toast.error('At least one product/cabin is required');
+      return;
+    }
+    setProductRows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateProductRow = (index: number, field: keyof ProductRow, val: any) => {
+    setProductRows((prev) => {
+      const updated = [...prev];
+      const row = { ...updated[index], [field]: val };
+
+      if (field === 'noOfSeats' || field === 'ratePerAgreement') {
+        if (!row.isAmountManuallyEdited) {
+          const seats = Number(field === 'noOfSeats' ? val : row.noOfSeats) || 0;
+          const rate = Number(field === 'ratePerAgreement' ? val : row.ratePerAgreement) || 0;
+          row.amount = computeProductAmount(seats, rate);
+        }
+      }
+
+      if (field === 'amount') {
+        row.isAmountManuallyEdited = true;
+      }
+
+      if (field === 'amount' || field === 'gstPercent') {
+        if (!row.isTotalAmountManuallyEdited) {
+          const baseAmt = Number(field === 'amount' ? val : row.amount) || 0;
+          const gstPct = Number(field === 'gstPercent' ? val : row.gstPercent) || 0;
+          row.totalAmount = computeProductTotal(baseAmt, gstPct);
+        }
+      }
+
+      if (field === 'totalAmount') {
+        row.isTotalAmountManuallyEdited = true;
+      }
+
+      updated[index] = row;
+      return updated;
+    });
+  };
+
+  const handleResetRowAmountAuto = (index: number) => {
+    setProductRows((prev) => {
+      const updated = [...prev];
+      const row = { ...updated[index] };
+      row.isAmountManuallyEdited = false;
+      const seats = Number(row.noOfSeats) || 0;
+      const rate = Number(row.ratePerAgreement) || 0;
+      row.amount = computeProductAmount(seats, rate);
+      if (!row.isTotalAmountManuallyEdited) {
+        row.totalAmount = computeProductTotal(Number(row.amount) || 0, Number(row.gstPercent) || 0);
+      }
+      updated[index] = row;
+      return updated;
+    });
+  };
+
+  const handleResetRowTotalAuto = (index: number) => {
+    setProductRows((prev) => {
+      const updated = [...prev];
+      const row = { ...updated[index] };
+      row.isTotalAmountManuallyEdited = false;
+      const baseAmt = Number(row.amount) || 0;
+      const gstPct = Number(row.gstPercent) || 0;
+      row.totalAmount = computeProductTotal(baseAmt, gstPct);
+      updated[index] = row;
+      return updated;
+    });
+  };
 
   // Fetch locations for Admin filter dropdown
   const fetchLocations = useCallback(async () => {
@@ -259,8 +413,8 @@ export default function ClientMasterRegistryPage() {
 
   // Contact Persons Handlers
   const handleAddContactPerson = () => {
-    setContactPersons([
-      ...contactPersons,
+    setContactPersons((prev) => [
+      ...prev,
       { name: '', designation: '', mobileNo: '', email: '' }
     ]);
   };
@@ -270,19 +424,26 @@ export default function ClientMasterRegistryPage() {
       toast.error('At least one contact person is required');
       return;
     }
-    setContactPersons(contactPersons.filter((_, i) => i !== index));
+    setContactPersons((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleUpdateContactPerson = (index: number, field: keyof ContactPerson, val: string) => {
-    const updated = [...contactPersons];
-    updated[index] = { ...updated[index], [field]: val };
-    setContactPersons(updated);
+    setContactPersons((prev) => {
+      const updated = [...prev];
+      let valueToSet = val;
+      if (field === 'mobileNo') {
+        valueToSet = sanitizeMobileInput(val);
+      }
+      updated[index] = { ...updated[index], [field]: valueToSet };
+      return updated;
+    });
   };
 
-  // Upload Handlers for GST and TDS PDFs
-  const handleFileUpload = async (file: File, type: 'GST' | 'TDS') => {
+  // Upload Handlers for GST, TDS, and Agreement PDFs (Stored in Database)
+  const handleFileUpload = async (file: File, type: 'GST' | 'TDS' | 'AGREEMENT') => {
     if (type === 'GST') setUploadingGstPdf(true);
     if (type === 'TDS') setUploadingTdsPdf(true);
+    if (type === 'AGREEMENT') setUploadingAgreementPdf(true);
 
     try {
       const formData = new FormData();
@@ -299,10 +460,14 @@ export default function ClientMasterRegistryPage() {
           setGstPdfUrl(json.data.fileUrl);
           setGstPdfName(json.data.fileName);
           toast.success('GST Certificate uploaded successfully');
-        } else {
+        } else if (type === 'TDS') {
           setTdsPdfUrl(json.data.fileUrl);
           setTdsPdfName(json.data.fileName);
           toast.success('TAT Certificate uploaded successfully');
+        } else if (type === 'AGREEMENT') {
+          setAgreementPdfUrl(json.data.fileUrl);
+          setAgreementPdfName(json.data.fileName);
+          toast.success('Agreement PDF uploaded successfully');
         }
       } else {
         toast.error(json.error || 'Upload failed');
@@ -312,41 +477,55 @@ export default function ClientMasterRegistryPage() {
     } finally {
       if (type === 'GST') setUploadingGstPdf(false);
       if (type === 'TDS') setUploadingTdsPdf(false);
+      if (type === 'AGREEMENT') setUploadingAgreementPdf(false);
     }
   };
 
   // Reset Form
   const resetForm = () => {
     setEditingId(null);
+    setClientId(DEFAULT_CLIENT_ID_PREFIX);
+    setHasBrokerCommission(false);
+    setBrokerCommissionPercent('');
+    setInvoiceToBeRaised('CLIENT');
+
     setCompanyName('');
-    setHoAddress('');
+    setHoAddressLine1('');
+    setHoAddressLine2('');
+    setHoCity('');
+    setHoState('');
+    setHoCountry('');
+    setHoPinCode('');
+
     setGstStatus('UNREGISTERED');
     setGstNo('');
     setGstPdfUrl('');
     setGstPdfName('');
+
     setContactPersons([{ name: '', designation: '', mobileNo: '', email: '' }]);
+
     setAgreementStartDate('');
     setAgreementEndDate('');
+    setAgreementPdfUrl('');
+    setAgreementPdfName('');
     setLockinEndDate('');
     setNoticePeriodMonths('');
     setNoticePeriodApplicable('After Lock-in');
+
     setEscalationPercent('');
     setEscalationApplicable('');
-    setCabinName('');
-    setNoOfSeats('');
-    setRatePerAgreement('');
-    setAmount('');
-    setIsAmountManuallyEdited(false);
-    setGstPercent(18);
-    setTotalAmount('');
-    setIsTotalAmountManuallyEdited(false);
+    setDocumentationCharges('');
+
+    setProductRows([createEmptyProductRow()]);
+
     setWillDeductTds(false);
     setTanNo('');
     setTdsPdfUrl('');
     setTdsPdfName('');
-    setClientId('');
+
     setSorAmount('');
     setSorRecdDate('');
+    setPaymentDueDay('');
     setClientStatus('Active');
 
     const maxSr = entries.length > 0 ? Math.max(...entries.map((e) => e.srNo || 0)) : 0;
@@ -357,8 +536,19 @@ export default function ClientMasterRegistryPage() {
   const handleEditEntry = (entry: ClientMasterEntry) => {
     setEditingId(entry.id);
     setSrNoDisplay(entry.srNo);
-    setCompanyName(entry.companyName);
-    setHoAddress(entry.hoAddress || '');
+    setClientId(entry.clientId || DEFAULT_CLIENT_ID_PREFIX);
+    setHasBrokerCommission(Boolean(entry.hasBrokerCommission));
+    setBrokerCommissionPercent(entry.brokerCommissionPercent ?? '');
+    setInvoiceToBeRaised(entry.invoiceToBeRaised || 'CLIENT');
+
+    setCompanyName(entry.companyName || '');
+    setHoAddressLine1(entry.hoAddressLine1 || '');
+    setHoAddressLine2(entry.hoAddressLine2 || '');
+    setHoCity(entry.hoCity || '');
+    setHoState(entry.hoState || '');
+    setHoCountry(entry.hoCountry || '');
+    setHoPinCode(entry.hoPinCode || '');
+
     setGstStatus(entry.gstStatus || 'UNREGISTERED');
     setGstNo(entry.gstNo || '');
     setGstPdfUrl(entry.gstPdfUrl || '');
@@ -379,154 +569,139 @@ export default function ClientMasterRegistryPage() {
 
     setAgreementStartDate(entry.agreementStartDate ? new Date(entry.agreementStartDate).toISOString().split('T')[0] : '');
     setAgreementEndDate(entry.agreementEndDate ? new Date(entry.agreementEndDate).toISOString().split('T')[0] : '');
+    setAgreementPdfUrl(entry.agreementPdfUrl || '');
+    setAgreementPdfName(entry.agreementPdfName || '');
     setLockinEndDate(entry.lockinEndDate ? new Date(entry.lockinEndDate).toISOString().split('T')[0] : '');
     setNoticePeriodMonths(entry.noticePeriodMonths ?? '');
     setNoticePeriodApplicable(entry.noticePeriodApplicable || 'After Lock-in');
 
     setEscalationPercent(entry.escalationPercent ?? '');
     setEscalationApplicable(entry.escalationApplicable ? new Date(entry.escalationApplicable).toISOString().split('T')[0] : '');
-    setCabinName(entry.cabinName || '');
-    setNoOfSeats(entry.noOfSeats ?? '');
-    setRatePerAgreement(entry.ratePerAgreement ?? '');
-    setAmount(entry.amount ?? '');
-    setIsAmountManuallyEdited(true);
-    setGstPercent(entry.gstPercent ?? 18);
-    setTotalAmount(entry.totalAmount ?? '');
-    setIsTotalAmountManuallyEdited(true);
+    setDocumentationCharges(entry.documentationCharges ?? '');
+
+    if (entry.products && entry.products.length > 0) {
+      setProductRows(
+        entry.products.map((p) => ({
+          cabinName: p.cabinName || '',
+          noOfSeats: p.noOfSeats ?? '',
+          ratePerAgreement: p.ratePerAgreement ?? '',
+          amount: p.amount ?? '',
+          gstPercent: p.gstPercent ?? 18,
+          totalAmount: p.totalAmount ?? '',
+          isAmountManuallyEdited: true,
+          isTotalAmountManuallyEdited: true,
+        }))
+      );
+    } else {
+      setProductRows([
+        {
+          cabinName: entry.cabinName || '',
+          noOfSeats: entry.noOfSeats ?? '',
+          ratePerAgreement: entry.ratePerAgreement ?? '',
+          amount: entry.amount ?? '',
+          gstPercent: entry.gstPercent ?? 18,
+          totalAmount: entry.totalAmount ?? '',
+          isAmountManuallyEdited: true,
+          isTotalAmountManuallyEdited: true,
+        }
+      ]);
+    }
 
     setWillDeductTds(Boolean(entry.willDeductTds));
     setTanNo(entry.tanNo || '');
     setTdsPdfUrl(entry.tdsPdfUrl || '');
     setTdsPdfName(entry.tdsPdfName || '');
 
-    setClientId(entry.clientId || '');
     setSorAmount(entry.sorAmount ?? '');
     setSorRecdDate(entry.sorRecdDate ? new Date(entry.sorRecdDate).toISOString().split('T')[0] : '');
+    setPaymentDueDay(entry.paymentDueDay ?? '');
     setClientStatus(entry.clientStatus || 'Active');
 
     setShowAddClientModal(true);
   };
 
-  // Submit Handler
+  // Submit Handler with Validations
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!clientId.trim()) {
-      toast.error('Please enter Client ID (Manual)');
-      return;
+    // Validations for Mobile & Email
+    for (const cp of contactPersons) {
+      if (cp.mobileNo && !validateMobile(cp.mobileNo)) {
+        toast.error(`Mobile number for "${cp.name || 'Contact Person'}" must be exactly 10 numeric digits.`);
+        return;
+      }
+      if (cp.email && !validateEmail(cp.email)) {
+        toast.error(`Email for "${cp.name || 'Contact Person'}" is invalid (must contain @).`);
+        return;
+      }
     }
 
-    if (!companyName.trim()) {
-      toast.error('Please enter Company Name');
-      return;
-    }
-
-    if (!hoAddress.trim()) {
-      toast.error('Please enter Head Office (HO) Address');
-      return;
-    }
-
-    if (gstStatus === 'REGISTERED' && !gstNo.trim()) {
-      toast.error('Please enter GST No for Registered GST status');
-      return;
-    }
-
-    if (contactPersons.some((cp) => !cp.name.trim() || !cp.designation.trim() || !cp.mobileNo.trim() || !cp.email.trim())) {
-      toast.error('Please fill in all Contact Person details');
-      return;
-    }
-
-    if (!agreementStartDate) {
-      toast.error('Please select Agreement Start Date');
-      return;
-    }
-
-    if (!agreementEndDate) {
-      toast.error('Please select Agreement End Date');
-      return;
-    }
-
-    if (!lockinEndDate) {
-      toast.error('Please select Lock-in End Date');
-      return;
-    }
-
-    if (typeof noticePeriodMonths !== 'number') {
-      toast.error('Please enter Notice Period (Months)');
-      return;
-    }
-
-    if (typeof escalationPercent !== 'number') {
-      toast.error('Please enter Escalation %');
-      return;
-    }
-
-    if (!escalationApplicable) {
-      toast.error('Please select Escalation Applicable Date');
-      return;
-    }
-
-    if (!cabinName.trim()) {
-      toast.error('Please enter Cabin Name');
-      return;
-    }
-
-    if (typeof noOfSeats !== 'number') {
-      toast.error('Please enter No of Seats');
-      return;
-    }
-
-    if (typeof ratePerAgreement !== 'number') {
-      toast.error('Please enter Rate as per Agreement');
-      return;
-    }
-
-    if (willDeductTds && !tanNo.trim()) {
-      toast.error('Please enter TAT Number when TDS deduction is Yes');
-      return;
-    }
-
-    if (typeof sorAmount !== 'number') {
-      toast.error('Please enter SDR Amount');
-      return;
-    }
-
-    if (!sorRecdDate) {
-      toast.error('Please select SDR Received Date');
+    if (paymentDueDay !== '' && (Number(paymentDueDay) < 1 || Number(paymentDueDay) > 31)) {
+      toast.error('Payment Due Day must be between 1 and 31');
       return;
     }
 
     setSubmitting(true);
 
     const payload = {
-      companyName: companyName.trim(),
-      hoAddress: hoAddress.trim() || null,
+      clientId: clientId.trim() || DEFAULT_CLIENT_ID_PREFIX,
+      hasBrokerCommission,
+      brokerCommissionPercent: hasBrokerCommission && brokerCommissionPercent !== '' ? Number(brokerCommissionPercent) : null,
+      invoiceToBeRaised: hasBrokerCommission ? invoiceToBeRaised : null,
+
+      companyName: companyName.trim() || 'Untitled Client',
+      hoAddressLine1: hoAddressLine1.trim() || null,
+      hoAddressLine2: hoAddressLine2.trim() || null,
+      hoCity: hoCity.trim() || null,
+      hoState: hoState.trim() || null,
+      hoCountry: hoCountry.trim() || null,
+      hoPinCode: hoPinCode.trim() || null,
+      hoAddress: buildHoAddress({
+        line1: hoAddressLine1,
+        line2: hoAddressLine2,
+        city: hoCity,
+        state: hoState,
+        country: hoCountry,
+        pinCode: hoPinCode,
+      }),
+
       gstStatus,
       gstNo: gstStatus === 'REGISTERED' ? gstNo.trim() : null,
       gstPdfUrl: gstStatus === 'REGISTERED' ? gstPdfUrl : null,
       gstPdfName: gstStatus === 'REGISTERED' ? gstPdfName : null,
+
+      contactPersons: contactPersons.filter((cp) => cp.name.trim() !== '' || cp.mobileNo.trim() !== '' || cp.email.trim() !== ''),
+
       agreementStartDate: agreementStartDate || null,
       agreementEndDate: agreementEndDate || null,
+      agreementPdfUrl: agreementPdfUrl || null,
+      agreementPdfName: agreementPdfName || null,
       lockinEndDate: lockinEndDate || null,
-      noticePeriodMonths: typeof noticePeriodMonths === 'number' ? noticePeriodMonths : null,
+      noticePeriodMonths: noticePeriodMonths !== '' ? Number(noticePeriodMonths) : null,
       noticePeriodApplicable,
-      escalationPercent: typeof escalationPercent === 'number' ? escalationPercent : null,
+
+      escalationPercent: escalationPercent !== '' ? Number(escalationPercent) : null,
       escalationApplicable: escalationApplicable || null,
-      cabinName: cabinName.trim() || null,
-      noOfSeats: typeof noOfSeats === 'number' ? noOfSeats : null,
-      ratePerAgreement: typeof ratePerAgreement === 'number' ? ratePerAgreement : null,
-      amount: typeof amount === 'number' ? amount : null,
-      gstPercent: typeof gstPercent === 'number' ? gstPercent : null,
-      totalAmount: typeof totalAmount === 'number' ? totalAmount : null,
+      documentationCharges: documentationCharges !== '' ? Number(documentationCharges) : null,
+
+      products: productRows.map((p) => ({
+        cabinName: p.cabinName.trim() || null,
+        noOfSeats: p.noOfSeats !== '' ? Number(p.noOfSeats) : null,
+        ratePerAgreement: p.ratePerAgreement !== '' ? Number(p.ratePerAgreement) : null,
+        amount: p.amount !== '' ? Number(p.amount) : null,
+        gstPercent: p.gstPercent !== '' ? Number(p.gstPercent) : null,
+        totalAmount: p.totalAmount !== '' ? Number(p.totalAmount) : null,
+      })),
+
       willDeductTds,
       tanNo: willDeductTds ? tanNo.trim() : null,
       tdsPdfUrl: willDeductTds ? tdsPdfUrl : null,
       tdsPdfName: willDeductTds ? tdsPdfName : null,
-      clientId: clientId.trim() || null,
-      sorAmount: typeof sorAmount === 'number' ? sorAmount : null,
+
+      sorAmount: sorAmount !== '' ? Number(sorAmount) : null,
       sorRecdDate: sorRecdDate || null,
+      paymentDueDay: paymentDueDay !== '' ? Number(paymentDueDay) : null,
       clientStatus,
-      contactPersons: contactPersons.filter((cp) => cp.name.trim() !== '')
     };
 
     try {
@@ -939,10 +1114,24 @@ export default function ClientMasterRegistryPage() {
                               End: <span className="font-bold">{new Date(entry.agreementEndDate).toLocaleDateString('en-IN')}</span>
                             </div>
                           )}
+                          {entry.agreementPdfUrl && (
+                            <a
+                              href={entry.agreementPdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[9px] text-[#006064] font-bold hover:underline flex items-center gap-0.5 mt-0.5"
+                            >
+                              <Paperclip size={9} /> Agreement PDF
+                            </a>
+                          )}
                         </td>
 
                         <td className="p-3">
-                          <div className="font-bold">{entry.cabinName || 'N/A'}</div>
+                          <div className="font-bold">
+                            {entry.products && entry.products.length > 1
+                              ? `${entry.products.length} Products (${entry.products.map((p) => p.cabinName).filter(Boolean).join(', ')})`
+                              : entry.cabinName || 'N/A'}
+                          </div>
                           <div className="text-[10px] text-[#616161]">
                             {entry.noOfSeats || 0} seats @ ₹{Number(entry.ratePerAgreement || 0).toLocaleString('en-IN')}
                           </div>
@@ -1029,7 +1218,7 @@ export default function ClientMasterRegistryPage() {
                       {editingId ? `Edit Client Master Entry (#${srNoDisplay})` : 'Add New Client Master Entry'}
                     </h2>
                     <p className="text-xs text-white/80 font-light">
-                      Enter company details, GST/TDS options, seating allocations, and agreement parameters below.
+                      Enter company details, seating allocations, agreement parameters, and broker details below.
                     </p>
                   </div>
                 </div>
@@ -1045,30 +1234,87 @@ export default function ClientMasterRegistryPage() {
 
               {/* Modal Form Scrollable Area */}
               <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8 overflow-y-auto flex-1 text-xs">
-                {/* SECTION 1: Basic Info */}
+                {/* SECTION 1: Client ID & Broker Commission Options */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B1C1C] border-b border-neutral-200 pb-2">
-                    <Building2 size={16} className="text-[#006064]" /> 1. Primary Company Details
+                    <Building2 size={16} className="text-[#006064]" /> 1. Client Identifier & Broker Details
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/60">
                     <div>
                       <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                        Client ID (Manual) <span className="text-red-500 ml-0.5">*</span>
+                        Client ID (Manual)
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. CLT-2026-004"
+                        placeholder="e.g. SSPACIA/AHD/CGM"
                         value={clientId}
                         onChange={(e) => setClientId(e.target.value)}
-                        className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-mono font-bold"
-                        required
+                        className="w-full bg-white border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-mono font-bold"
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                        Company Name <span className="text-red-500 ml-0.5">*</span>
+                        Broker Commission
+                      </label>
+                      <select
+                        value={hasBrokerCommission ? 'YES' : 'NO'}
+                        onChange={(e) => setHasBrokerCommission(e.target.value === 'YES')}
+                        className="w-full bg-white border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-bold"
+                      >
+                        <option value="NO">No</option>
+                        <option value="YES">Yes</option>
+                      </select>
+                    </div>
+
+                    {hasBrokerCommission && (
+                      <>
+                        <div>
+                          <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
+                            Broker Commission (%)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="e.g. 5.0"
+                            value={brokerCommissionPercent}
+                            onChange={(e) => setBrokerCommissionPercent(e.target.value === '' ? '' : Number(e.target.value))}
+                            className="w-full bg-white border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-bold"
+                          />
+                        </div>
+
+                        <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-neutral-200 pt-3">
+                          <div>
+                            <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
+                              Invoice To Be Raised
+                            </label>
+                            <select
+                              value={invoiceToBeRaised}
+                              onChange={(e) => setInvoiceToBeRaised(e.target.value)}
+                              className="w-full bg-white border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-bold"
+                            >
+                              <option value="CLIENT">Client</option>
+                              <option value="BROKER">Broker</option>
+                            </select>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* SECTION 2: Head Office Address Format Improvement */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B1C1C] border-b border-neutral-200 pb-2">
+                    <MapPin size={16} className="text-[#006064]" /> 2. Head Office (HO) Address
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
+                        Company Name
                       </label>
                       <input
                         type="text"
@@ -1076,42 +1322,106 @@ export default function ClientMasterRegistryPage() {
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-medium"
-                        required
                       />
                     </div>
 
-                    <div>
-                      <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                        Head Office (HO) Address <span className="text-red-500 ml-0.5">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Head Office address..."
-                        value={hoAddress}
-                        onChange={(e) => setHoAddress(e.target.value)}
-                        className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064]"
-                        required
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/60">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                          Address Line 1
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Building, Suite, Street..."
+                          value={hoAddressLine1}
+                          onChange={(e) => setHoAddressLine1(e.target.value)}
+                          className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                          Address Line 2
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Landmark, Area..."
+                          value={hoAddressLine2}
+                          onChange={(e) => setHoAddressLine2(e.target.value)}
+                          className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                          City
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Ahmedabad"
+                          value={hoCity}
+                          onChange={(e) => setHoCity(e.target.value)}
+                          className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                          State
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Gujarat"
+                          value={hoState}
+                          onChange={(e) => setHoState(e.target.value)}
+                          className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                          Country
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. India"
+                          value={hoCountry}
+                          onChange={(e) => setHoCountry(e.target.value)}
+                          className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                          Pin Code
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 380015"
+                          value={hoPinCode}
+                          onChange={(e) => setHoPinCode(e.target.value)}
+                          className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064] font-mono"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* SECTION 2: GST Details */}
+                {/* SECTION 3: GST Registration Status */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B1C1C] border-b border-neutral-200 pb-2">
-                    <FileText size={16} className="text-[#006064]" /> 2. GST Registration Status & Attachment
+                    <FileText size={16} className="text-[#006064]" /> 3. GST Registration Status & Attachment
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/60">
                     <div>
                       <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                        GST Registration Status <span className="text-red-500 ml-0.5">*</span>
+                        GST Registration Status
                       </label>
                       <select
                         value={gstStatus}
                         onChange={(e) => setGstStatus(e.target.value as 'REGISTERED' | 'UNREGISTERED')}
                         className="w-full bg-white border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-bold"
-                        required
                       >
                         <option value="UNREGISTERED">Unregistered</option>
                         <option value="REGISTERED">Registered</option>
@@ -1122,7 +1432,7 @@ export default function ClientMasterRegistryPage() {
                       <>
                         <div>
                           <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                            GST Number <span className="text-red-500 ml-0.5">*</span>
+                            GST Number
                           </label>
                           <input
                             type="text"
@@ -1130,13 +1440,12 @@ export default function ClientMasterRegistryPage() {
                             value={gstNo}
                             onChange={(e) => setGstNo(e.target.value.toUpperCase())}
                             className="w-full bg-white border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-mono uppercase font-bold"
-                            required={gstStatus === 'REGISTERED'}
                           />
                         </div>
 
                         <div>
                           <label className="block font-bold uppercase tracking-wider text-[#616161] mb-1.5">
-                            Attach GST CERTIFICATE <span className="text-red-500 ml-0.5">*</span>
+                            Attach GST CERTIFICATE
                           </label>
                           <div className="flex items-center gap-2">
                             <input
@@ -1162,11 +1471,11 @@ export default function ClientMasterRegistryPage() {
                   </div>
                 </div>
 
-                {/* SECTION 3: Contact Persons (Add More) */}
+                {/* SECTION 4: Contact Persons Details & Validations */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
                     <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B1C1C]">
-                      <Users size={16} className="text-[#006064]" /> 3. Contact Person(s) Details
+                      <Users size={16} className="text-[#006064]" /> 4. Contact Person(s) Details
                     </div>
                     <button
                       type="button"
@@ -1178,131 +1487,165 @@ export default function ClientMasterRegistryPage() {
                   </div>
 
                   <div className="space-y-3">
-                    {contactPersons.map((cp, idx) => (
-                      <div
-                        key={idx}
-                        className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-[#F8F9FA] p-3 border border-[var(--outline-variant)]/60 items-center"
-                      >
-                        <div className="md:col-span-3">
-                          <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
-                            Contact Name #{idx + 1} <span className="text-red-500 ml-0.5">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Full name..."
-                            value={cp.name}
-                            onChange={(e) => handleUpdateContactPerson(idx, 'name', e.target.value)}
-                            className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
-                            required
-                          />
-                        </div>
+                    {contactPersons.map((cp, idx) => {
+                      const isMobileValid = !cp.mobileNo || validateMobile(cp.mobileNo);
+                      const isEmailValid = !cp.email || validateEmail(cp.email);
 
-                        <div className="md:col-span-3">
-                          <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
-                            Designation <span className="text-red-500 ml-0.5">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="e.g. Director, Manager..."
-                            value={cp.designation}
-                            onChange={(e) => handleUpdateContactPerson(idx, 'designation', e.target.value)}
-                            className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
-                            required
-                          />
-                        </div>
+                      return (
+                        <div
+                          key={idx}
+                          className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-[#F8F9FA] p-3 border border-[var(--outline-variant)]/60 items-start"
+                        >
+                          <div className="md:col-span-3">
+                            <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                              Contact Name #{idx + 1}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Full name..."
+                              value={cp.name}
+                              onChange={(e) => handleUpdateContactPerson(idx, 'name', e.target.value)}
+                              className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
+                            />
+                          </div>
 
-                        <div className="md:col-span-3">
-                          <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
-                            Mobile No. <span className="text-red-500 ml-0.5">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="+91 98765 43210"
-                            value={cp.mobileNo}
-                            onChange={(e) => handleUpdateContactPerson(idx, 'mobileNo', e.target.value)}
-                            className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
-                            required
-                          />
-                        </div>
+                          <div className="md:col-span-3">
+                            <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                              Designation
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Director, Manager..."
+                              value={cp.designation}
+                              onChange={(e) => handleUpdateContactPerson(idx, 'designation', e.target.value)}
+                              className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
+                            />
+                          </div>
 
-                        <div className="md:col-span-2">
-                          <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
-                            Email <span className="text-red-500 ml-0.5">*</span>
-                          </label>
-                          <input
-                            type="email"
-                            placeholder="email@domain.com"
-                            value={cp.email}
-                            onChange={(e) => handleUpdateContactPerson(idx, 'email', e.target.value)}
-                            className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064]"
-                            required
-                          />
-                        </div>
+                          <div className="md:col-span-3">
+                            <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                              Mobile No. (Exact 10 digits)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="10 digit number"
+                              value={cp.mobileNo}
+                              onChange={(e) => handleUpdateContactPerson(idx, 'mobileNo', e.target.value)}
+                              className={`w-full bg-white border px-3 py-2 text-xs focus:outline-none font-mono ${
+                                !isMobileValid ? 'border-red-500 bg-red-50/50' : 'border-[var(--outline-variant)] focus:border-[#006064]'
+                              }`}
+                            />
+                            {!isMobileValid && (
+                              <div className="text-[9px] text-red-600 font-bold mt-0.5">Must be exact 10 digits</div>
+                            )}
+                          </div>
 
-                        <div className="md:col-span-1 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveContactPerson(idx)}
-                            className="text-neutral-400 hover:text-red-600 p-1.5 transition-colors mt-4 md:mt-0"
-                            title="Remove contact"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          <div className="md:col-span-2">
+                            <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                              Email (@ required)
+                            </label>
+                            <input
+                              type="email"
+                              placeholder="email@domain.com"
+                              value={cp.email}
+                              onChange={(e) => handleUpdateContactPerson(idx, 'email', e.target.value)}
+                              className={`w-full bg-white border px-3 py-2 text-xs focus:outline-none font-mono ${
+                                !isEmailValid ? 'border-red-500 bg-red-50/50' : 'border-[var(--outline-variant)] focus:border-[#006064]'
+                              }`}
+                            />
+                            {!isEmailValid && (
+                              <div className="text-[9px] text-red-600 font-bold mt-0.5">Invalid email format</div>
+                            )}
+                          </div>
+
+                          <div className="md:col-span-1 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveContactPerson(idx)}
+                              className="text-neutral-400 hover:text-red-600 p-1.5 transition-colors mt-4 md:mt-0"
+                              title="Remove contact"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* SECTION 4: Agreement Dates & Notice Period */}
+                {/* SECTION 5: Agreement Dates, Lock-in & Notice Terms (Includes Agreement PDF Attach option) */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B1C1C] border-b border-neutral-200 pb-2">
-                    <Calendar size={16} className="text-[#006064]" /> 4. Agreement Dates, Lock-in & Notice Terms
+                    <Calendar size={16} className="text-[#006064]" /> 5. Agreement Dates, Lock-in & Notice Terms
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Agreement Start Date <span className="text-red-500 ml-0.5">*</span>
+                        Agreement Start Date
                       </label>
                       <input
                         type="date"
                         value={agreementStartDate}
                         onChange={(e) => setAgreementStartDate(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064]"
-                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Agreement End Date <span className="text-red-500 ml-0.5">*</span>
+                        Agreement End Date
                       </label>
                       <input
                         type="date"
                         value={agreementEndDate}
                         onChange={(e) => setAgreementEndDate(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064]"
-                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Lock-in End Date <span className="text-red-500 ml-0.5">*</span>
+                        Attach Agreement PDF
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleFileUpload(e.target.files[0], 'AGREEMENT');
+                            }
+                          }}
+                          className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs"
+                        />
+                        {uploadingAgreementPdf && <Loader2 size={16} className="animate-spin text-[#006064]" />}
+                      </div>
+                      {agreementPdfName && (
+                        <div className="text-[11px] text-emerald-700 font-bold mt-1 flex items-center gap-1">
+                          <CheckCircle2 size={12} /> Attached: {agreementPdfName}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block font-bold uppercase text-[#616161] mb-1">
+                        Lock-in End Date
                       </label>
                       <input
                         type="date"
                         value={lockinEndDate}
                         onChange={(e) => setLockinEndDate(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064]"
-                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Notice Period (Months) <span className="text-red-500 ml-0.5">*</span>
+                        Notice Period (Months)
                       </label>
                       <input
                         type="number"
@@ -1311,19 +1654,17 @@ export default function ClientMasterRegistryPage() {
                         value={noticePeriodMonths}
                         onChange={(e) => setNoticePeriodMonths(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
-                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Notice Applicable <span className="text-red-500 ml-0.5">*</span>
+                        Notice Applicable
                       </label>
                       <select
                         value={noticePeriodApplicable}
                         onChange={(e) => setNoticePeriodApplicable(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-medium"
-                        required
                       >
                         {NOTICE_APPLICABLE_OPTIONS.map((opt) => (
                           <option key={opt} value={opt}>
@@ -1335,16 +1676,177 @@ export default function ClientMasterRegistryPage() {
                   </div>
                 </div>
 
-                {/* SECTION 5: Escalation & Seating */}
+                {/* SECTION 6: Cabin, Seats, Rates & Billing Amounts (Multi-Product & Add More Products) */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B1C1C] border-b border-neutral-200 pb-2">
-                    <DollarSign size={16} className="text-[#006064]" /> 5. Cabin, Seats, Rates & Billing Amounts
+                  <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+                    <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B1C1C]">
+                      <DollarSign size={16} className="text-[#006064]" /> 6. Cabin, Seats, Rates & Billing Amounts
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddProductModal(true)}
+                        className="text-xs text-blue-700 font-bold uppercase tracking-wider hover:underline flex items-center gap-1"
+                      >
+                        <Sparkles size={14} /> Add Product Option
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleAddProductRow}
+                        className="text-xs text-[#006064] font-bold uppercase tracking-wider hover:underline flex items-center gap-1"
+                      >
+                        <Plus size={14} /> Add More Cabin / Product
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Product Rows */}
+                  <div className="space-y-4">
+                    {productRows.map((row, idx) => {
+                      const isParking = isParkingProduct(row.cabinName);
+                      const seatsLabel = isParking ? 'No of Parking' : 'No of Seats';
+                      const rateLabel = isParking ? 'Rate as per Agreement (₹)' : 'Rate per seat (₹)';
+                      const amountLabel = isParking ? 'Amount (Parking * Rate)' : 'Amount (Seats * Rate)';
+
+                      return (
+                        <div
+                          key={idx}
+                          className="bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/60 space-y-4 relative"
+                        >
+                          <div className="flex items-center justify-between border-b border-neutral-200/60 pb-2">
+                            <span className="font-bold text-xs uppercase text-[#006064]">
+                              Item #{idx + 1} {isParking && <span className="ml-2 text-amber-700 text-[10px] bg-amber-100 px-1.5 py-0.5">Parking Mode</span>}
+                            </span>
+
+                            {productRows.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveProductRow(idx)}
+                                className="text-neutral-400 hover:text-red-600 text-xs font-bold uppercase flex items-center gap-1"
+                              >
+                                <Trash2 size={13} /> Remove Item
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+                            <div className="md:col-span-2">
+                              <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                                Cabin Name / Product
+                              </label>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="text"
+                                  list={`product-options-${idx}`}
+                                  placeholder="Type or select product..."
+                                  value={row.cabinName}
+                                  onChange={(e) => handleUpdateProductRow(idx, 'cabinName', e.target.value)}
+                                  className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064] font-medium"
+                                />
+                                <datalist id={`product-options-${idx}`}>
+                                  {availableProducts.map((pName) => (
+                                    <option key={pName} value={pName} />
+                                  ))}
+                                </datalist>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                                {seatsLabel}
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                placeholder={isParking ? 'No of parking...' : 'No of seats...'}
+                                value={row.noOfSeats}
+                                onChange={(e) =>
+                                  handleUpdateProductRow(idx, 'noOfSeats', e.target.value === '' ? '' : Number(e.target.value))
+                                }
+                                className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064] font-bold"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                                {rateLabel}
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="Rate..."
+                                value={row.ratePerAgreement}
+                                onChange={(e) =>
+                                  handleUpdateProductRow(idx, 'ratePerAgreement', e.target.value === '' ? '' : Number(e.target.value))
+                                }
+                                className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064] font-bold text-right"
+                              />
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="block text-[9px] font-bold uppercase text-[#616161]">
+                                  {amountLabel}
+                                </label>
+                                {row.isAmountManuallyEdited && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetRowAmountAuto(idx)}
+                                    className="text-[8px] text-[#006064] font-bold hover:underline"
+                                  >
+                                    Reset
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="number"
+                                min="0"
+                                value={row.amount}
+                                onChange={(e) =>
+                                  handleUpdateProductRow(idx, 'amount', e.target.value === '' ? '' : Number(e.target.value))
+                                }
+                                className="w-full bg-blue-50 border border-blue-200 px-3 py-2 text-xs focus:outline-none font-bold text-right text-blue-900"
+                              />
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="block text-[9px] font-bold uppercase text-[#1B1C1C]">
+                                  Total Amt (Amt+GST)
+                                </label>
+                                {row.isTotalAmountManuallyEdited && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetRowTotalAuto(idx)}
+                                    className="text-[8px] text-[#006064] font-bold hover:underline"
+                                  >
+                                    Reset
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="number"
+                                min="0"
+                                value={row.totalAmount}
+                                onChange={(e) =>
+                                  handleUpdateProductRow(idx, 'totalAmount', e.target.value === '' ? '' : Number(e.target.value))
+                                }
+                                className="w-full bg-emerald-50 border border-emerald-300 px-3 py-2 text-xs focus:outline-none font-black text-right text-emerald-800"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Escalation % & Escalation Applicable Date (Distinct Row) */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 border border-slate-200">
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Escalation % <span className="text-red-500 ml-0.5">*</span>
+                        Escalation %
                       </label>
                       <input
                         type="number"
@@ -1353,159 +1855,53 @@ export default function ClientMasterRegistryPage() {
                         placeholder="e.g. 5.0"
                         value={escalationPercent}
                         onChange={(e) => setEscalationPercent(e.target.value === '' ? '' : Number(e.target.value))}
-                        className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
-                        required
+                        className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Escalation Applicable Date <span className="text-red-500 ml-0.5">*</span>
+                        Escalation Applicable Date
                       </label>
                       <input
                         type="date"
                         value={escalationApplicable}
                         onChange={(e) => setEscalationApplicable(e.target.value)}
-                        className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
-                        required
+                        className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Cabin Name <span className="text-red-500 ml-0.5">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Cabin A-102"
-                        value={cabinName}
-                        onChange={(e) => setCabinName(e.target.value)}
-                        className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-medium"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold uppercase text-[#616161] mb-1">
-                        No of Seats <span className="text-red-500 ml-0.5">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="e.g. 10"
-                        value={noOfSeats}
-                        onChange={(e) => setNoOfSeats(e.target.value === '' ? '' : Number(e.target.value))}
-                        className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Rate as per Agreement (₹) <span className="text-red-500 ml-0.5">*</span>
+                        Documentation Charges (₹)
                       </label>
                       <input
                         type="number"
                         min="0"
-                        placeholder="Rate per seat..."
-                        value={ratePerAgreement}
-                        onChange={(e) => setRatePerAgreement(e.target.value === '' ? '' : Number(e.target.value))}
-                        className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold text-right"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block font-bold uppercase text-[#616161]">
-                          Amount (Seats * Rate) <span className="text-red-500 ml-0.5">*</span>
-                        </label>
-                        {isAmountManuallyEdited && (
-                          <button
-                            type="button"
-                            onClick={() => setIsAmountManuallyEdited(false)}
-                            className="text-[9px] text-[#006064] font-bold hover:underline"
-                          >
-                            Reset Auto
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        value={amount}
-                        onChange={(e) => {
-                          setIsAmountManuallyEdited(true);
-                          setAmount(e.target.value === '' ? '' : Number(e.target.value));
-                        }}
-                        className="w-full bg-blue-50 border border-blue-200 px-3 py-2.5 text-xs focus:outline-none font-bold text-right text-blue-900"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold uppercase text-[#616161] mb-1">
-                        GST % <span className="text-red-500 ml-0.5">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="18"
-                        value={gstPercent}
-                        onChange={(e) => setGstPercent(e.target.value === '' ? '' : Number(e.target.value))}
-                        className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block font-bold uppercase text-[#1B1C1C]">
-                          Total Amount (Amt + GST) <span className="text-red-500 ml-0.5">*</span>
-                        </label>
-                        {isTotalAmountManuallyEdited && (
-                          <button
-                            type="button"
-                            onClick={() => setIsTotalAmountManuallyEdited(false)}
-                            className="text-[9px] text-[#006064] font-bold hover:underline"
-                          >
-                            Reset Auto
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        value={totalAmount}
-                        onChange={(e) => {
-                          setIsTotalAmountManuallyEdited(true);
-                          setTotalAmount(e.target.value === '' ? '' : Number(e.target.value));
-                        }}
-                        className="w-full bg-emerald-50 border border-emerald-300 px-3 py-2.5 text-sm focus:outline-none font-black text-right text-emerald-800"
-                        required
+                        placeholder="Documentation charges..."
+                        value={documentationCharges}
+                        onChange={(e) => setDocumentationCharges(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold text-right"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* SECTION 6: TDS Deduction Options */}
+                {/* SECTION 7: TDS Deduction Options */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B1C1C] border-b border-neutral-200 pb-2">
-                    <Percent size={16} className="text-[#006064]" /> 6. TDS Deduction & TAT Attachment
+                    <Percent size={16} className="text-[#006064]" /> 7. TDS Deduction & TAT Attachment
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/60">
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1.5">
-                        Will Client Deduct TDS? <span className="text-red-500 ml-0.5">*</span>
+                        Will Client Deduct TDS?
                       </label>
                       <select
                         value={willDeductTds ? 'YES' : 'NO'}
                         onChange={(e) => setWillDeductTds(e.target.value === 'YES')}
                         className="w-full bg-white border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-bold"
-                        required
                       >
                         <option value="NO">No</option>
                         <option value="YES">Yes</option>
@@ -1516,7 +1912,7 @@ export default function ClientMasterRegistryPage() {
                       <>
                         <div>
                           <label className="block font-bold uppercase text-[#616161] mb-1.5">
-                            TAT Number <span className="text-red-500 ml-0.5">*</span>
+                            TAT Number
                           </label>
                           <input
                             type="text"
@@ -1524,13 +1920,12 @@ export default function ClientMasterRegistryPage() {
                             value={tanNo}
                             onChange={(e) => setTanNo(e.target.value.toUpperCase())}
                             className="w-full bg-white border border-[var(--outline-variant)] px-4 py-3 text-sm focus:outline-none focus:border-[#006064] font-mono uppercase font-bold"
-                            required={willDeductTds}
                           />
                         </div>
 
                         <div>
                           <label className="block font-bold uppercase text-[#616161] mb-1.5">
-                            Attach TAT CERTIFICATE <span className="text-red-500 ml-0.5">*</span>
+                            Attach TAT CERTIFICATE
                           </label>
                           <div className="flex items-center gap-2">
                             <input
@@ -1556,16 +1951,16 @@ export default function ClientMasterRegistryPage() {
                   </div>
                 </div>
 
-                {/* SECTION 7: Security Deposit (SDR) & Status */}
+                {/* SECTION 8: Security Deposit (SDR) & Payment Due Day */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#1B1C1C] border-b border-neutral-200 pb-2">
-                    <Shield size={16} className="text-[#006064]" /> 7. Security Deposit (SDR) & Status
+                    <Shield size={16} className="text-[#006064]" /> 8. Security Deposit (SDR) & Payment Due Day
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        SDR Amount (Security Deposit) <span className="text-red-500 ml-0.5">*</span>
+                        SDR Amount (Security Deposit)
                       </label>
                       <input
                         type="number"
@@ -1574,32 +1969,44 @@ export default function ClientMasterRegistryPage() {
                         value={sorAmount}
                         onChange={(e) => setSorAmount(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold text-right"
-                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        SDR Received Date <span className="text-red-500 ml-0.5">*</span>
+                        SDR Received Date
                       </label>
                       <input
                         type="date"
                         value={sorRecdDate}
                         onChange={(e) => setSorRecdDate(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064]"
-                        required
                       />
                     </div>
 
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Client Status <span className="text-red-500 ml-0.5">*</span>
+                        Payment Due Day (1 to 31)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        placeholder="e.g. 5 or 10"
+                        value={paymentDueDay}
+                        onChange={(e) => setPaymentDueDay(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold uppercase text-[#616161] mb-1">
+                        Client Status
                       </label>
                       <select
                         value={clientStatus}
                         onChange={(e) => setClientStatus(e.target.value)}
                         className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
-                        required
                       >
                         {CLIENT_STATUS_OPTIONS.map((st) => (
                           <option key={st} value={st}>
@@ -1637,6 +2044,60 @@ export default function ClientMasterRegistryPage() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ADD NEW PRODUCT OPTION MODAL */}
+      <AnimatePresence>
+        {showAddProductModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white border border-[var(--outline-variant)] p-6 w-full max-w-md space-y-4 shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
+                <h3 className="font-bold text-sm uppercase text-[#1B1C1C] flex items-center gap-2">
+                  <Sparkles size={16} className="text-[#006064]" /> Add New Product Option
+                </h3>
+                <button onClick={() => setShowAddProductModal(false)} className="text-neutral-400 hover:text-neutral-700">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-[#616161] mb-1">
+                  Product / Space Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Storage Space, Event Room, Special Cabin..."
+                  value={newProductName}
+                  onChange={(e) => setNewProductName(e.target.value)}
+                  className="w-full bg-[#F8F9FA] border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-medium"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddProductModal(false)}
+                  className="px-4 py-2 border border-[var(--outline-variant)] text-xs font-bold uppercase text-[#616161]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddNewProductOption}
+                  disabled={addingProduct}
+                  className="px-5 py-2 bg-[#006064] text-white text-xs font-bold uppercase hover:bg-[#004D40] flex items-center gap-1.5"
+                >
+                  {addingProduct ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add Product
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
@@ -1710,6 +2171,17 @@ export default function ClientMasterRegistryPage() {
                 </div>
               </div>
 
+              {/* Broker Details */}
+              {entryToViewDetails.hasBrokerCommission && (
+                <div className="bg-amber-50 p-4 border border-amber-200 text-amber-900 space-y-1">
+                  <div className="font-bold uppercase text-[10px]">Brokerage Commission Details</div>
+                  <div className="flex items-center gap-4 text-xs font-bold">
+                    <span>Commission %: {entryToViewDetails.brokerCommissionPercent ?? 0}%</span>
+                    <span>Invoice To Be Raised: {entryToViewDetails.invoiceToBeRaised || 'CLIENT'}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Contact Persons */}
               <div className="space-y-2">
                 <h4 className="font-bold uppercase tracking-wider text-[#1B1C1C] flex items-center gap-2">
@@ -1768,40 +2240,100 @@ export default function ClientMasterRegistryPage() {
                     <div className="font-bold mt-0.5">{entryToViewDetails.noticePeriodApplicable || 'N/A'}</div>
                   </div>
                 </div>
+
+                {entryToViewDetails.agreementPdfUrl && (
+                  <div className="pt-1">
+                    <a
+                      href={entryToViewDetails.agreementPdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#006064] font-bold hover:underline flex items-center gap-1"
+                    >
+                      <Download size={12} /> Download Attached Agreement PDF ({entryToViewDetails.agreementPdfName || 'Agreement.pdf'})
+                    </a>
+                  </div>
+                )}
               </div>
 
-              {/* Cabin, Seats & Financials */}
+              {/* Cabins & Products Table */}
               <div className="space-y-2">
                 <h4 className="font-bold uppercase tracking-wider text-[#1B1C1C] flex items-center gap-2">
-                  <DollarSign size={14} className="text-[#006064]" /> Cabin & Billing Amounts
+                  <DollarSign size={14} className="text-[#006064]" /> Cabin / Product Breakdown
                 </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  <div className="bg-[#F8F9FA] p-3 border border-[var(--outline-variant)]/60">
-                    <div className="text-[10px] font-bold uppercase text-[#616161]">Cabin Name</div>
-                    <div className="font-bold mt-0.5">{entryToViewDetails.cabinName || 'N/A'}</div>
-                  </div>
-                  <div className="bg-[#F8F9FA] p-3 border border-[var(--outline-variant)]/60">
-                    <div className="text-[10px] font-bold uppercase text-[#616161]">Seats & Rate</div>
-                    <div className="font-bold mt-0.5">
-                      {entryToViewDetails.noOfSeats || 0} seats @ ₹
-                      {Number(entryToViewDetails.ratePerAgreement || 0).toLocaleString('en-IN')}
+                {entryToViewDetails.products && entryToViewDetails.products.length > 0 ? (
+                  <table className="w-full border-collapse border border-[var(--outline-variant)]/60 text-xs">
+                    <thead>
+                      <tr className="bg-[#F8F9FA] text-[#616161] uppercase">
+                        <th className="p-2 border border-neutral-200">Cabin / Product</th>
+                        <th className="p-2 border border-neutral-200 text-center">Seats / Parking</th>
+                        <th className="p-2 border border-neutral-200 text-right">Rate (₹)</th>
+                        <th className="p-2 border border-neutral-200 text-right">Amount (₹)</th>
+                        <th className="p-2 border border-neutral-200 text-center">GST %</th>
+                        <th className="p-2 border border-neutral-200 text-right">Total Amt (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {entryToViewDetails.products.map((p, i) => (
+                        <tr key={i}>
+                          <td className="p-2 border border-neutral-200 font-bold">{p.cabinName || 'N/A'}</td>
+                          <td className="p-2 border border-neutral-200 text-center font-bold">{p.noOfSeats || 0}</td>
+                          <td className="p-2 border border-neutral-200 text-right font-mono">₹{Number(p.ratePerAgreement || 0).toLocaleString('en-IN')}</td>
+                          <td className="p-2 border border-neutral-200 text-right font-mono">₹{Number(p.amount || 0).toLocaleString('en-IN')}</td>
+                          <td className="p-2 border border-neutral-200 text-center">{p.gstPercent ?? 18}%</td>
+                          <td className="p-2 border border-neutral-200 text-right font-mono font-bold text-[#006064]">₹{Number(p.totalAmount || 0).toLocaleString('en-IN')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div className="bg-[#F8F9FA] p-3 border border-[var(--outline-variant)]/60">
+                      <div className="text-[10px] font-bold uppercase text-[#616161]">Cabin Name</div>
+                      <div className="font-bold mt-0.5">{entryToViewDetails.cabinName || 'N/A'}</div>
+                    </div>
+                    <div className="bg-[#F8F9FA] p-3 border border-[var(--outline-variant)]/60">
+                      <div className="text-[10px] font-bold uppercase text-[#616161]">Seats & Rate</div>
+                      <div className="font-bold mt-0.5">
+                        {entryToViewDetails.noOfSeats || 0} seats @ ₹
+                        {Number(entryToViewDetails.ratePerAgreement || 0).toLocaleString('en-IN')}
+                      </div>
+                    </div>
+                    <div className="bg-[#F8F9FA] p-3 border border-[var(--outline-variant)]/60">
+                      <div className="text-[10px] font-bold uppercase text-[#616161]">Base Amount</div>
+                      <div className="font-bold mt-0.5">
+                        ₹{Number(entryToViewDetails.amount || 0).toLocaleString('en-IN')}
+                      </div>
+                    </div>
+                    <div className="bg-[#F8F9FA] p-3 border border-[var(--outline-variant)]/60">
+                      <div className="text-[10px] font-bold uppercase text-[#616161]">GST %</div>
+                      <div className="font-bold mt-0.5">{entryToViewDetails.gstPercent ?? 18}%</div>
+                    </div>
+                    <div className="bg-emerald-50 border border-emerald-300 p-3 text-emerald-900">
+                      <div className="text-[10px] font-black uppercase">Total Amount</div>
+                      <div className="font-black text-base text-emerald-800 mt-0.5">
+                        ₹{Number(entryToViewDetails.totalAmount || 0).toLocaleString('en-IN')}
+                      </div>
                     </div>
                   </div>
-                  <div className="bg-[#F8F9FA] p-3 border border-[var(--outline-variant)]/60">
-                    <div className="text-[10px] font-bold uppercase text-[#616161]">Base Amount</div>
-                    <div className="font-bold mt-0.5">
-                      ₹{Number(entryToViewDetails.amount || 0).toLocaleString('en-IN')}
-                    </div>
+                )}
+              </div>
+
+              {/* Escalation & Documentation */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 border border-slate-200">
+                <div>
+                  <div className="text-[10px] font-bold uppercase text-[#616161]">Escalation %</div>
+                  <div className="font-bold text-[#1B1C1C] mt-0.5">{entryToViewDetails.escalationPercent ?? 0}%</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase text-[#616161]">Escalation Applicable Date</div>
+                  <div className="font-bold text-[#1B1C1C] mt-0.5">
+                    {entryToViewDetails.escalationApplicable ? new Date(entryToViewDetails.escalationApplicable).toLocaleDateString('en-IN') : 'N/A'}
                   </div>
-                  <div className="bg-[#F8F9FA] p-3 border border-[var(--outline-variant)]/60">
-                    <div className="text-[10px] font-bold uppercase text-[#616161]">GST %</div>
-                    <div className="font-bold mt-0.5">{entryToViewDetails.gstPercent ?? 18}%</div>
-                  </div>
-                  <div className="bg-emerald-50 border border-emerald-300 p-3 text-emerald-900">
-                    <div className="text-[10px] font-black uppercase">Total Amount</div>
-                    <div className="font-black text-base text-emerald-800 mt-0.5">
-                      ₹{Number(entryToViewDetails.totalAmount || 0).toLocaleString('en-IN')}
-                    </div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase text-[#616161]">Documentation Charges</div>
+                  <div className="font-bold text-[#1B1C1C] mt-0.5">
+                    ₹{Number(entryToViewDetails.documentationCharges || 0).toLocaleString('en-IN')}
                   </div>
                 </div>
               </div>
@@ -1830,13 +2362,18 @@ export default function ClientMasterRegistryPage() {
                 </div>
 
                 <div>
-                  <div className="font-bold uppercase text-[#616161] text-[10px]">Security Deposit (SDR)</div>
+                  <div className="font-bold uppercase text-[#616161] text-[10px]">Security Deposit (SDR) & Payment Due</div>
                   <div className="font-bold text-[#1B1C1C] mt-0.5">
                     Amount: ₹{Number(entryToViewDetails.sorAmount || 0).toLocaleString('en-IN')}
                   </div>
                   {entryToViewDetails.sorRecdDate && (
                     <div className="text-neutral-600 text-[10px]">
                       SDR Recd Date: {new Date(entryToViewDetails.sorRecdDate).toLocaleDateString('en-IN')}
+                    </div>
+                  )}
+                  {entryToViewDetails.paymentDueDay && (
+                    <div className="text-emerald-800 font-bold text-[10px] mt-0.5">
+                      Payment Due Day: {entryToViewDetails.paymentDueDay} of month
                     </div>
                   )}
                 </div>

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/jwt';
 import prisma from '@/lib/prisma';
 import { getNodeScopedUserIds, getUserIdsByLocation } from '@/lib/auth/getNodeScopedUserIds';
+import { mapClientMasterPayload } from '@/lib/client-master-payload';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,6 +83,9 @@ export async function GET(request: Request) {
         contactPersons: {
           orderBy: { sortOrder: 'asc' },
         },
+        products: {
+          orderBy: { sortOrder: 'asc' },
+        },
       },
       orderBy: { srNo: 'desc' },
     });
@@ -107,38 +111,10 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const {
-      companyName,
-      hoAddress,
-      gstStatus = 'UNREGISTERED',
-      gstNo,
-      gstPdfUrl,
-      gstPdfName,
-      agreementStartDate,
-      agreementEndDate,
-      lockinEndDate,
-      noticePeriodMonths,
-      noticePeriodApplicable,
-      escalationPercent,
-      escalationApplicable,
-      cabinName,
-      noOfSeats,
-      ratePerAgreement,
-      amount,
-      gstPercent,
-      totalAmount,
-      willDeductTds = false,
-      tanNo,
-      tdsPdfUrl,
-      tdsPdfName,
-      clientId,
-      sorAmount,
-      sorRecdDate,
-      clientStatus = 'Active',
-      contactPersons = [],
-    } = body;
+    const mapped = mapClientMasterPayload(body);
+    const { contactPersons, products, ...clientData } = mapped;
 
-    if (!companyName || !companyName.trim()) {
+    if (!clientData.companyName) {
       return NextResponse.json(
         { error: 'Company Name is required.' },
         { status: 400 }
@@ -156,33 +132,7 @@ export async function POST(request: Request) {
     const newEntry = await (prisma as any).clientMaster.create({
       data: {
         srNo: nextSrNo,
-        companyName: String(companyName).trim(),
-        hoAddress: hoAddress ? String(hoAddress).trim() : null,
-        gstStatus: String(gstStatus),
-        gstNo: gstStatus === 'REGISTERED' && gstNo ? String(gstNo).trim() : null,
-        gstPdfUrl: gstStatus === 'REGISTERED' ? gstPdfUrl || null : null,
-        gstPdfName: gstStatus === 'REGISTERED' ? gstPdfName || null : null,
-        agreementStartDate: agreementStartDate ? new Date(agreementStartDate) : null,
-        agreementEndDate: agreementEndDate ? new Date(agreementEndDate) : null,
-        lockinEndDate: lockinEndDate ? new Date(lockinEndDate) : null,
-        noticePeriodMonths: noticePeriodMonths ? Number(noticePeriodMonths) : null,
-        noticePeriodApplicable: noticePeriodApplicable ? String(noticePeriodApplicable) : null,
-        escalationPercent: escalationPercent ? Number(escalationPercent) : null,
-        escalationApplicable: escalationApplicable ? new Date(escalationApplicable) : null,
-        cabinName: cabinName ? String(cabinName).trim() : null,
-        noOfSeats: noOfSeats ? Number(noOfSeats) : null,
-        ratePerAgreement: ratePerAgreement ? Number(ratePerAgreement) : null,
-        amount: amount ? Number(amount) : null,
-        gstPercent: gstPercent ? Number(gstPercent) : null,
-        totalAmount: totalAmount ? Number(totalAmount) : null,
-        willDeductTds: Boolean(willDeductTds),
-        tanNo: willDeductTds && tanNo ? String(tanNo).trim() : null,
-        tdsPdfUrl: willDeductTds ? tdsPdfUrl || null : null,
-        tdsPdfName: willDeductTds ? tdsPdfName || null : null,
-        clientId: clientId ? String(clientId).trim() : null,
-        sorAmount: sorAmount ? Number(sorAmount) : null,
-        sorRecdDate: sorRecdDate ? new Date(sorRecdDate) : null,
-        clientStatus: clientStatus ? String(clientStatus) : 'Active',
+        ...clientData,
         createdById: userId,
         contactPersons: {
           create: contactPersons.map((cp: any, idx: number) => ({
@@ -192,6 +142,9 @@ export async function POST(request: Request) {
             email: cp.email ? String(cp.email).trim() : null,
             sortOrder: idx,
           })),
+        },
+        products: {
+          create: products,
         },
       },
       include: {
@@ -210,6 +163,7 @@ export async function POST(request: Request) {
           },
         },
         contactPersons: true,
+        products: { orderBy: { sortOrder: 'asc' } },
       },
     });
 

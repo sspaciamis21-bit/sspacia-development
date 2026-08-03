@@ -24,11 +24,16 @@ export async function POST(request: Request) {
     if (sendType === 'MANUAL' && Array.isArray(clientMasterIds) && clientMasterIds.length > 0) {
       clientsToDispatch = await (prisma as any).clientMaster.findMany({
         where: { id: { in: clientMasterIds.map(Number) } },
+        include: {
+          products: { orderBy: { sortOrder: 'asc' } },
+        },
       });
     } else {
-      // AUTOMATIC_MONTH_END or Dispatch All Active Clients
       clientsToDispatch = await (prisma as any).clientMaster.findMany({
         where: { clientStatus: 'Active' },
+        include: {
+          products: { orderBy: { sortOrder: 'asc' } },
+        },
       });
     }
 
@@ -46,30 +51,46 @@ export async function POST(request: Request) {
     ];
     const currentBillingMonth = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
 
-    // Create InvoiceRecord for each client master record
-    const createdInvoiceRecords = await (prisma as any).$transaction(
-      clientsToDispatch.map((cm: any) =>
-        (prisma as any).invoiceRecord.create({
-          data: {
-            clientMasterId: cm.id,
-            srNo: cm.srNo,
-            companyName: cm.companyName,
+    const invoiceCreates: any[] = [];
+
+    for (const cm of clientsToDispatch) {
+      const productRows = cm.products?.length > 0
+        ? cm.products
+        : [{
             cabinName: cm.cabinName,
             noOfSeats: cm.noOfSeats,
             ratePerAgreement: cm.ratePerAgreement,
             amount: cm.amount,
             gstPercent: cm.gstPercent,
             totalAmount: cm.totalAmount,
-            gstNo: cm.gstNo,
-            billingMonth: currentBillingMonth,
-            sendType: sendType === 'AUTOMATIC_MONTH_END' ? 'AUTOMATIC_MONTH_END' : 'MANUAL',
-            sentAt: now,
-            status: 'PENDING_CM_REVIEW',
-            createdById: userId,
-          },
-        })
-      )
-    );
+          }];
+
+      for (const product of productRows) {
+        invoiceCreates.push(
+          (prisma as any).invoiceRecord.create({
+            data: {
+              clientMasterId: cm.id,
+              srNo: cm.srNo,
+              companyName: cm.companyName,
+              cabinName: product.cabinName,
+              noOfSeats: product.noOfSeats,
+              ratePerAgreement: product.ratePerAgreement,
+              amount: product.amount,
+              gstPercent: product.gstPercent,
+              totalAmount: product.totalAmount,
+              gstNo: cm.gstNo,
+              billingMonth: currentBillingMonth,
+              sendType: sendType === 'AUTOMATIC_MONTH_END' ? 'AUTOMATIC_MONTH_END' : 'MANUAL',
+              sentAt: now,
+              status: 'PENDING_CM_REVIEW',
+              createdById: userId,
+            },
+          })
+        );
+      }
+    }
+
+    const createdInvoiceRecords = await (prisma as any).$transaction(invoiceCreates);
 
     return NextResponse.json({
       success: true,

@@ -177,7 +177,7 @@ export default function LoginClient() {
                   required
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  placeholder="e.g. muskan-marcado"
+                  placeholder="-"
                   className="w-full rounded-none border-b-2 border-outline-variant/30 bg-surface-high pl-12 pr-4 py-4 text-sm outline-none transition-all focus:border-primary focus:bg-white text-on-surface placeholder:text-tertiary/50"
                 />
               </div>
@@ -292,7 +292,7 @@ export default function LoginClient() {
                       required
                       value={forgotData.username}
                       onChange={(e) => setForgotData({ ...forgotData, username: e.target.value })}
-                      placeholder="e.g. muskan-marcado"
+                      placeholder="-"
                       className="w-full border border-outline-variant/30 bg-surface-high pl-10 pr-3 py-2.5 text-sm outline-none focus:border-primary text-on-surface rounded-none"
                     />
                   </div>
@@ -312,7 +312,7 @@ export default function LoginClient() {
                       required
                       value={forgotData.email}
                       onChange={(e) => setForgotData({ ...forgotData, email: e.target.value })}
-                      placeholder="cm@sspacia.com"
+                      placeholder=""
                       className="w-full border border-outline-variant/30 bg-surface-high pl-10 pr-3 py-2.5 text-sm outline-none focus:border-primary text-on-surface rounded-none"
                     />
                   </div>
