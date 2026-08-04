@@ -224,7 +224,7 @@ export default function AdminInvoicesWorkflowPage() {
         toast.error(json.error || 'Failed to update status');
       }
     } catch {
-      toast.error('Error updating invoice status');
+      toast.error('Error updating invoice status');    
     } finally {
       setActionLoading(false);
     }

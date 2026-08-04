@@ -4,6 +4,10 @@ export function isParkingProduct(name: string): boolean {
   return name.trim().toLowerCase().includes('parking');
 }
 
+export function isDocumentationChargesProduct(name: string): boolean {
+  return name.trim().toLowerCase().includes('documentation');
+}
+
 export function roundCurrency(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -14,7 +18,7 @@ export function computeProductAmount(seats: number, rate: number): number {
 
 export function computeProductTotal(amount: number, gstPercent: number): number {
   const gstVal = (amount * gstPercent) / 100;
-  return roundCurrency(amount + gstVal);
+  return Math.round(amount + gstVal);
 }
 
 export function validateMobile(mobile: string): boolean {

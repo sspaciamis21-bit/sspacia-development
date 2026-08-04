@@ -37,6 +37,7 @@ import { useSidebar } from '@/context/SidebarContext';
 import {
   DEFAULT_CLIENT_ID_PREFIX,
   isParkingProduct,
+  isDocumentationChargesProduct,
   roundCurrency,
   computeProductAmount,
   computeProductTotal,
@@ -308,7 +309,7 @@ export default function ClientMasterRegistryPage() {
         if (!row.isAmountManuallyEdited) {
           const seats = Number(field === 'noOfSeats' ? val : row.noOfSeats) || 0;
           const rate = Number(field === 'ratePerAgreement' ? val : row.ratePerAgreement) || 0;
-          row.amount = computeProductAmount(seats, rate);
+          row.amount = (seats > 0 && rate > 0) ? computeProductAmount(seats, rate) : '';
         }
       }
 
@@ -316,11 +317,13 @@ export default function ClientMasterRegistryPage() {
         row.isAmountManuallyEdited = true;
       }
 
-      if (field === 'amount' || field === 'gstPercent') {
+      if (field === 'noOfSeats' || field === 'ratePerAgreement' || field === 'amount' || field === 'gstPercent') {
         if (!row.isTotalAmountManuallyEdited) {
-          const baseAmt = Number(field === 'amount' ? val : row.amount) || 0;
-          const gstPct = Number(field === 'gstPercent' ? val : row.gstPercent) || 0;
-          row.totalAmount = computeProductTotal(baseAmt, gstPct);
+          const baseAmt = row.amount !== '' ? Number(row.amount) : 0;
+          const gstPct = row.gstPercent !== '' ? Number(row.gstPercent) : 0;
+          row.totalAmount = (row.amount !== '' && Number(row.amount) > 0)
+            ? computeProductTotal(baseAmt, gstPct)
+            : '';
         }
       }
 
@@ -340,9 +343,13 @@ export default function ClientMasterRegistryPage() {
       row.isAmountManuallyEdited = false;
       const seats = Number(row.noOfSeats) || 0;
       const rate = Number(row.ratePerAgreement) || 0;
-      row.amount = computeProductAmount(seats, rate);
+      row.amount = (seats > 0 && rate > 0) ? computeProductAmount(seats, rate) : '';
       if (!row.isTotalAmountManuallyEdited) {
-        row.totalAmount = computeProductTotal(Number(row.amount) || 0, Number(row.gstPercent) || 0);
+        const baseAmt = row.amount !== '' ? Number(row.amount) : 0;
+        const gstPct = row.gstPercent !== '' ? Number(row.gstPercent) : 0;
+        row.totalAmount = (row.amount !== '' && Number(row.amount) > 0)
+          ? computeProductTotal(baseAmt, gstPct)
+          : '';
       }
       updated[index] = row;
       return updated;
@@ -354,9 +361,11 @@ export default function ClientMasterRegistryPage() {
       const updated = [...prev];
       const row = { ...updated[index] };
       row.isTotalAmountManuallyEdited = false;
-      const baseAmt = Number(row.amount) || 0;
-      const gstPct = Number(row.gstPercent) || 0;
-      row.totalAmount = computeProductTotal(baseAmt, gstPct);
+      const baseAmt = row.amount !== '' ? Number(row.amount) : 0;
+      const gstPct = row.gstPercent !== '' ? Number(row.gstPercent) : 0;
+      row.totalAmount = (row.amount !== '' && Number(row.amount) > 0)
+        ? computeProductTotal(baseAmt, gstPct)
+        : '';
       updated[index] = row;
       return updated;
     });
@@ -1706,9 +1715,15 @@ export default function ClientMasterRegistryPage() {
                   <div className="space-y-4">
                     {productRows.map((row, idx) => {
                       const isParking = isParkingProduct(row.cabinName);
+                      const isDocCharges = isDocumentationChargesProduct(row.cabinName);
                       const seatsLabel = isParking ? 'No of Parking' : 'No of Seats';
                       const rateLabel = isParking ? 'Rate as per Agreement (₹)' : 'Rate per seat (₹)';
-                      const amountLabel = isParking ? 'Amount (Parking * Rate)' : 'Amount (Seats * Rate)';
+                      const amountLabel = isDocCharges ? 'Charges Amount (₹)' : isParking ? 'Amount (Parking * Rate)' : 'Amount (Seats * Rate)';
+
+                      // Merge "Documentation Charges" into datalist options
+                      const productOptions = availableProducts.includes('Documentation Charges')
+                        ? availableProducts
+                        : ['Documentation Charges', ...availableProducts];
 
                       return (
                         <div
@@ -1718,6 +1733,7 @@ export default function ClientMasterRegistryPage() {
                           <div className="flex items-center justify-between border-b border-neutral-200/60 pb-2">
                             <span className="font-bold text-xs uppercase text-[#006064]">
                               Item #{idx + 1} {isParking && <span className="ml-2 text-amber-700 text-[10px] bg-amber-100 px-1.5 py-0.5">Parking Mode</span>}
+                              {isDocCharges && <span className="ml-2 text-purple-700 text-[10px] bg-purple-100 px-1.5 py-0.5">Documentation</span>}
                             </span>
 
                             {productRows.length > 1 && (
@@ -1731,8 +1747,8 @@ export default function ClientMasterRegistryPage() {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-                            <div className="md:col-span-2">
+                          <div className={`grid grid-cols-1 ${isDocCharges ? 'md:grid-cols-4' : 'md:grid-cols-7'} gap-3 items-end`}>
+                            <div className={isDocCharges ? '' : 'md:col-span-2'}>
                               <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
                                 Cabin Name / Product
                               </label>
@@ -1746,51 +1762,58 @@ export default function ClientMasterRegistryPage() {
                                   className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064] font-medium"
                                 />
                                 <datalist id={`product-options-${idx}`}>
-                                  {availableProducts.map((pName) => (
+                                  {productOptions.map((pName) => (
                                     <option key={pName} value={pName} />
                                   ))}
                                 </datalist>
                               </div>
-                            </div>
+                                      {/* No of Seats / Parking — hidden for Documentation Charges */}
+                            {!isDocCharges && (
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                                  {seatsLabel}
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="any"
+                                  placeholder={isParking ? 'No of parking...' : 'No of seats...'}
+                                  value={row.noOfSeats}
+                                  onChange={(e) =>
+                                    handleUpdateProductRow(idx, 'noOfSeats', e.target.value === '' ? '' : Number(e.target.value))
+                                  }
+                                  className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064] font-bold"
+                                />
+                              </div>
+                            )}
 
-                            <div>
-                              <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
-                                {seatsLabel}
-                              </label>
-                              <input
-                                type="number"
-                                min="1"
-                                placeholder={isParking ? 'No of parking...' : 'No of seats...'}
-                                value={row.noOfSeats}
-                                onChange={(e) =>
-                                  handleUpdateProductRow(idx, 'noOfSeats', e.target.value === '' ? '' : Number(e.target.value))
-                                }
-                                className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064] font-bold"
-                              />
-                            </div>
+                            {/* Rate — hidden for Documentation Charges */}
+                            {!isDocCharges && (
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
+                                  {rateLabel}
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  placeholder="Rate..."
+                                  value={row.ratePerAgreement}
+                                  onChange={(e) =>
+                                    handleUpdateProductRow(idx, 'ratePerAgreement', e.target.value === '' ? '' : Number(e.target.value))
+                                  }
+                                  className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064] font-bold text-right"
+                                />
+                              </div>
+                            )}
 
-                            <div>
-                              <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
-                                {rateLabel}
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                placeholder="Rate..."
-                                value={row.ratePerAgreement}
-                                onChange={(e) =>
-                                  handleUpdateProductRow(idx, 'ratePerAgreement', e.target.value === '' ? '' : Number(e.target.value))
-                                }
-                                className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs focus:outline-none focus:border-[#006064] font-bold text-right"
-                              />
-                            </div>
-
+                            {/* Amount */}
                             <div>
                               <div className="flex items-center justify-between mb-1">
                                 <label className="block text-[9px] font-bold uppercase text-[#616161]">
                                   {amountLabel}
                                 </label>
-                                {row.isAmountManuallyEdited && (
+                                {!isDocCharges && row.isAmountManuallyEdited && (
                                   <button
                                     type="button"
                                     onClick={() => handleResetRowAmountAuto(idx)}
@@ -1803,6 +1826,8 @@ export default function ClientMasterRegistryPage() {
                               <input
                                 type="number"
                                 min="0"
+                                step="any"
+                                placeholder={isDocCharges ? 'Doc charges...' : ''}
                                 value={row.amount}
                                 onChange={(e) =>
                                   handleUpdateProductRow(idx, 'amount', e.target.value === '' ? '' : Number(e.target.value))
@@ -1811,6 +1836,26 @@ export default function ClientMasterRegistryPage() {
                               />
                             </div>
 
+                            {/* GST (%) */}
+                            <div>
+                              <label className="block text-[9px] font-bold uppercase text-[#616161] mb-1">
+                                GST (%)
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="any"
+                                placeholder="18"
+                                value={row.gstPercent}
+                                onChange={(e) =>
+                                  handleUpdateProductRow(idx, 'gstPercent', e.target.value === '' ? '' : Number(e.target.value))
+                                }
+                                className="w-full bg-amber-50 border border-amber-200 px-3 py-2 text-xs focus:outline-none font-bold text-right text-amber-900"
+                              />
+                            </div>
+
+                            {/* Total Amt (Amt+GST) */}
                             <div>
                               <div className="flex items-center justify-between mb-1">
                                 <label className="block text-[9px] font-bold uppercase text-[#1B1C1C]">
@@ -1829,21 +1874,53 @@ export default function ClientMasterRegistryPage() {
                               <input
                                 type="number"
                                 min="0"
+                                step="any"
+                                placeholder="0"
                                 value={row.totalAmount}
                                 onChange={(e) =>
                                   handleUpdateProductRow(idx, 'totalAmount', e.target.value === '' ? '' : Number(e.target.value))
                                 }
                                 className="w-full bg-emerald-50 border border-emerald-300 px-3 py-2 text-xs focus:outline-none font-black text-right text-emerald-800"
                               />
-                            </div>
+                            </div>                        </div>
                           </div>
                         </div>
                       );
                     })}
                   </div>
 
+                  {/* Grand Total Summary Row */}
+                  {(() => {
+                    const grandAmount = productRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+                    const grandGst = productRows.reduce((sum, r) => {
+                      const amt = Number(r.amount) || 0;
+                      const gst = Number(r.gstPercent) || 0;
+                      return sum + (amt * gst / 100);
+                    }, 0);
+                    const grandTotal = productRows.reduce((sum, r) => sum + (Number(r.totalAmount) || 0), 0);
+                    return (
+                      <div className="bg-emerald-900 text-white p-4 border border-emerald-700 flex flex-wrap items-center justify-between gap-4">
+                        <span className="font-black text-xs uppercase tracking-widest">Grand Total (All Items)</span>
+                        <div className="flex items-center gap-6">
+                          <div className="text-center">
+                            <div className="text-[9px] uppercase tracking-wider text-emerald-300 mb-0.5">Total Amount</div>
+                            <div className="font-black text-sm">₹{roundCurrency(grandAmount).toLocaleString('en-IN')}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-[9px] uppercase tracking-wider text-emerald-300 mb-0.5">Total GST</div>
+                            <div className="font-black text-sm">₹{roundCurrency(grandGst).toLocaleString('en-IN')}</div>
+                          </div>
+                          <div className="text-center bg-white/10 px-4 py-1.5 rounded">
+                            <div className="text-[9px] uppercase tracking-wider text-emerald-200 mb-0.5">Grand Total</div>
+                            <div className="font-black text-lg">₹{roundCurrency(grandTotal).toLocaleString('en-IN')}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Escalation % & Escalation Applicable Date (Distinct Row) */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 border border-slate-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 border border-slate-200">
                     <div>
                       <label className="block font-bold uppercase text-[#616161] mb-1">
                         Escalation %
@@ -1868,20 +1945,6 @@ export default function ClientMasterRegistryPage() {
                         value={escalationApplicable}
                         onChange={(e) => setEscalationApplicable(e.target.value)}
                         className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold uppercase text-[#616161] mb-1">
-                        Documentation Charges (₹)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="Documentation charges..."
-                        value={documentationCharges}
-                        onChange={(e) => setDocumentationCharges(e.target.value === '' ? '' : Number(e.target.value))}
-                        className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2.5 text-xs focus:outline-none focus:border-[#006064] font-bold text-right"
                       />
                     </div>
                   </div>

@@ -16,7 +16,6 @@ export async function GET(
         createdBy: { select: { id: true, name: true, email: true } },
         contactPersons: { orderBy: { sortOrder: 'asc' } },
         products: { orderBy: { sortOrder: 'asc' } },
-        attachedInvoice: true,
       },
     });
 
@@ -80,7 +79,6 @@ export async function PUT(
           createdBy: { select: { id: true, name: true, email: true } },
           contactPersons: true,
           products: { orderBy: { sortOrder: 'asc' } },
-          attachedInvoice: true,
         },
       });
     });
