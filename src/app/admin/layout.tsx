@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { useSidebar } from '@/context/SidebarContext';
 import { ManageProfileModal } from '@/components/profile/ManageProfileModal';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 const sidebarItems = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -190,6 +191,19 @@ export default function AdminLayout({
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 relative">
+        {/* Top Navigation / Notification Header */}
+        <header className="h-16 bg-white border-b border-[var(--outline-variant)]/40 px-8 flex items-center justify-between z-40 shrink-0 shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#006064]">
+              SSPACIA Admin Portal
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+          </div>
+        </header>
+
         <div className="flex-1 p-10 overflow-y-auto relative z-0">
           {children}
         </div>
