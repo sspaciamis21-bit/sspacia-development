@@ -159,16 +159,29 @@ export async function GET(request: Request) {
       }
     }
 
-    // 3. ESCALATED SUPPORT TICKETS (>48 Hours SLA breached)
+    // 3. ESCALATED SUPPORT TICKETS (>48 Hours SLA breached by CM)
     const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
-    const overdueTickets = await prisma.supportTicket.findMany({
-      where: {
-        createdAt: { lte: fortyEightHoursAgo },
-        status: {
-          name: { notIn: ['RESOLVED', 'CLOSED', 'Resolved', 'Closed'] },
-        },
+    const ticketWhere: any = {
+      createdAt: { lte: fortyEightHoursAgo },
+      status: {
+        name: { notIn: ['RESOLVED', 'CLOSED', 'Resolved', 'Closed'] },
       },
+    };
+
+    if (scopedUserIds !== null) {
+      const currentUser = await prisma.user.findUnique({
+        where: { id: currentUserId },
+        select: { assignedLocations: { select: { locationId: true } } },
+      });
+      const myLocIds = currentUser?.assignedLocations.map((ul) => ul.locationId) || [];
+      if (myLocIds.length > 0) {
+        ticketWhere.locationId = { in: myLocIds };
+      }
+    }
+
+    const overdueTickets = await prisma.supportTicket.findMany({
+      where: ticketWhere,
       select: {
         id: true,
         ticketNumber: true,
