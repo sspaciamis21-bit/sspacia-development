@@ -94,17 +94,32 @@ export const GET = withPermission('tickets', 'view', async (req: NextRequest) =>
       }),
     ]);
 
+    const now = new Date().getTime();
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const responseData = (tickets as any[]).map((t) => ({
-      ...t,
-      // Frontend expects 'user' object for reporter info
-      user: t.customer ? { name: t.customer.name, email: t.customer.email } : null,
-      customer: undefined, // simplify the response
-    }));
+    const responseData = (tickets as any[]).map((t) => {
+      const createdAtMs = new Date(t.createdAt).getTime();
+      const hoursOpen = Math.floor((now - createdAtMs) / (1000 * 60 * 60));
+      const statusName = (t.status?.name || '').toUpperCase();
+      const isFinalStatus = ['RESOLVED', 'CLOSED'].includes(statusName) || Boolean(t.status?.isFinal);
+      const isEscalated = !isFinalStatus && hoursOpen >= 48;
+
+      return {
+        ...t,
+        // Frontend expects 'user' object for reporter info
+        user: t.customer ? { name: t.customer.name, email: t.customer.email } : (t.name ? { name: t.name, email: t.email } : null),
+        customer: undefined, // simplify the response
+        hoursOpen,
+        isEscalated,
+        escalatedHours: isEscalated ? hoursOpen - 48 : 0,
+      };
+    });
+
+    const escalatedCount = responseData.filter(t => t.isEscalated).length;
 
     return NextResponse.json({
       data: responseData,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit), escalatedCount },
     });
   } catch (error) {
     console.error('[TICKETS_READ]', error);

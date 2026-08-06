@@ -159,14 +159,64 @@ export async function GET(request: Request) {
       }
     }
 
-    // Sort both arrays by daysRemaining ascending (most urgent / expired first)
+    // 3. ESCALATED SUPPORT TICKETS (>48 Hours SLA breached)
+    const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+
+    const overdueTickets = await prisma.supportTicket.findMany({
+      where: {
+        createdAt: { lte: fortyEightHoursAgo },
+        status: {
+          name: { notIn: ['RESOLVED', 'CLOSED', 'Resolved', 'Closed'] },
+        },
+      },
+      select: {
+        id: true,
+        ticketNumber: true,
+        name: true,
+        email: true,
+        phone: true,
+        organization: true,
+        category: true,
+        subCategory: true,
+        description: true,
+        createdAt: true,
+        status: { select: { id: true, name: true, displayName: true } },
+        locationRel: { select: { id: true, name: true } },
+        customer: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'asc' }, // oldest / most overdue first
+    });
+
+    const ticketEscalations = overdueTickets.map((t) => {
+      const hoursOpen = Math.floor((now.getTime() - new Date(t.createdAt).getTime()) / (1000 * 60 * 60));
+      return {
+        id: t.id,
+        ticketNumber: t.ticketNumber,
+        companyName: t.organization || t.customer?.name || t.name,
+        reporterName: t.name || t.customer?.name || 'Client',
+        email: t.email || t.customer?.email || 'N/A',
+        phone: t.phone || 'N/A',
+        category: t.category || 'General Issue',
+        subCategory: t.subCategory,
+        description: t.description,
+        createdAt: t.createdAt,
+        hoursOpen,
+        overdueHours: hoursOpen - 48,
+        locationName: t.locationRel?.name || 'General Sector',
+        statusName: t.status.displayName || t.status.name,
+        type: 'TICKET_ESCALATION',
+      };
+    });
+
+    // Sort arrays
     agreementNotifications.sort((a, b) => a.daysRemaining - b.daysRemaining);
     lockinNotifications.sort((a, b) => a.daysRemaining - b.daysRemaining);
 
     const summary = {
       agreementCount: agreementNotifications.length,
       lockinCount: lockinNotifications.length,
-      totalCount: agreementNotifications.length + lockinNotifications.length,
+      ticketCount: ticketEscalations.length,
+      totalCount: agreementNotifications.length + lockinNotifications.length + ticketEscalations.length,
     };
 
     return NextResponse.json({
@@ -174,11 +224,12 @@ export async function GET(request: Request) {
       summary,
       agreements: agreementNotifications,
       lockins: lockinNotifications,
+      escalatedTickets: ticketEscalations,
     });
   } catch (error) {
-    console.error('Agreement & Lock-in notifications error:', error);
+    console.error('Agreement, Lock-in & Ticket notifications error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch agreement & lock-in notifications' },
+      { error: 'Failed to fetch agreement & ticket notifications' },
       { status: 500 }
     );
   }
