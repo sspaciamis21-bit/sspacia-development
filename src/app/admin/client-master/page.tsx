@@ -1756,7 +1756,9 @@ export default function ClientMasterRegistryPage() {
                                   ))}
                                 </datalist>
                               </div>
-                                      {/* No of Seats / Parking — hidden for Documentation Charges */}
+                            </div>
+
+                            {/* No of Seats / Parking — hidden for Documentation Charges */}
                             {!isDocCharges && (
                               <div>
                                 <label className="block text-[10px] font-bold uppercase text-[#616161] mb-1">
@@ -1871,7 +1873,7 @@ export default function ClientMasterRegistryPage() {
                                 }
                                 className="w-full bg-emerald-50 border border-emerald-300 px-3 py-2 text-xs focus:outline-none font-black text-right text-emerald-800"
                               />
-                            </div>                        </div>
+                            </div>
                           </div>
                         </div>
                       );
