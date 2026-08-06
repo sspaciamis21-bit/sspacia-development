@@ -51,6 +51,23 @@ export async function POST(request: Request) {
     ];
     const currentBillingMonth = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
 
+    // ── Duplicate prevention for AUTOMATIC_MONTH_END ─────────────
+    if (sendType === 'AUTOMATIC_MONTH_END') {
+      const existingCount = await (prisma as any).invoiceRecord.count({
+        where: {
+          billingMonth: currentBillingMonth,
+          sendType: 'AUTOMATIC_MONTH_END',
+        },
+      });
+
+      if (existingCount > 0) {
+        return NextResponse.json(
+          { error: `Month-end dispatch already completed for ${currentBillingMonth} (${existingCount} records exist). Cannot dispatch again.` },
+          { status: 400 }
+        );
+      }
+    }
+
     const invoiceCreates: any[] = [];
 
     for (const cm of clientsToDispatch) {
@@ -83,7 +100,7 @@ export async function POST(request: Request) {
               sendType: sendType === 'AUTOMATIC_MONTH_END' ? 'AUTOMATIC_MONTH_END' : 'MANUAL',
               sentAt: now,
               status: 'PENDING_CM_REVIEW',
-              createdById: userId,
+              createdById: cm.createdById, // Preserve original CM node ownership for data isolation
             },
           })
         );

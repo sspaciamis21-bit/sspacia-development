@@ -3,11 +3,15 @@ import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/jwt';
 import prisma from '@/lib/prisma';
 import { getNodeScopedUserIds, getUserIdsByLocation } from '@/lib/auth/getNodeScopedUserIds';
+import { autoDispatchIfLastDay } from '@/lib/auto-dispatch';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
+    // ── Auto-dispatch on last day of month (runs only once, duplicate-safe) ──
+    await autoDispatchIfLastDay();
+
     // Authenticate the current user
     const cookieStore = await cookies();
     const token = cookieStore.get('auth-token')?.value;

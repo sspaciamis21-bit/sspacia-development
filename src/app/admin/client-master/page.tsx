@@ -821,36 +821,25 @@ export default function ClientMasterRegistryPage() {
     const onNotice = entries.filter((e) => e.clientStatus === 'On Notice').length;
     const totalSeats = entries.reduce((acc, curr) => acc + (Number(curr.noOfSeats) || 0), 0);
     const totalRev = entries.reduce((acc, curr) => acc + (Number(curr.totalAmount) || 0), 0);
-
     return { totalClients, activeClients, onNotice, totalSeats, totalRev };
   }, [entries]);
 
   return (
     <div className="p-6 sm:p-10 max-w-[1600px] mx-auto space-y-8 bg-[#F8F9FA] min-h-screen text-[#1B1C1C]">
-      {/* Header Banner: Automatic Dispatch Notice */}
+      {/* Auto-Dispatch Notice + Manual Button */}
       <FadeUp>
-        <div className="bg-emerald-950 text-emerald-100 p-4 border border-emerald-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 bg-emerald-800/60 rounded-full flex items-center justify-center shrink-0">
-              <Clock className="h-5 w-5 text-emerald-400" />
-            </div>
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                Data Entry Repository & Automatic Month-End Dispatch System
-              </div>
-              <div className="text-xs font-light text-emerald-200">
-                All active client records here automatically generate monthly entries in the <strong>Invoices Section</strong> on the last working day of every month.
-              </div>
-            </div>
+        <div className="bg-white border border-[var(--outline-variant)]/60 px-4 py-2.5 flex items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-center gap-2 text-xs text-[#616161]">
+            <Clock className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>Active client records are <strong className="text-[#1B1C1C]">automatically dispatched to Invoices</strong> on the last day of every month.</span>
           </div>
-
           <button
             type="button"
             onClick={() => handleDispatchToInvoices('AUTOMATIC_MONTH_END')}
             disabled={dispatching}
-            className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider transition-colors shrink-0 flex items-center gap-1.5 shadow-xs"
+            className="px-3 py-1.5 bg-[var(--primary)] hover:opacity-90 text-white font-bold text-[10px] uppercase tracking-wider transition-colors shrink-0 flex items-center gap-1.5 shadow-xs"
           >
-            {dispatching ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Run Month-End Auto Dispatch Now
+            {dispatching ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} Dispatch to Invoices
           </button>
         </div>
       </FadeUp>
