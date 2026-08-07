@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 /**
  * Auto-dispatches all active ClientMaster entries to InvoiceRecords
  * on the last day of the month. Creates 1 single consolidated invoice per client.
- * Safe to call multiple times — has built-in duplicate prevention.
+ * Prioritizes products array sum so multi-product clients get exact grand totals.
  * 
  * Called automatically when anyone opens the Invoices page.
  */
@@ -53,18 +53,24 @@ export async function autoDispatchIfLastDay(): Promise<{ dispatched: boolean; co
     const invoiceCreates: any[] = [];
 
     for (const cm of clientsToDispatch) {
-      const cabinSummary = cm.products && cm.products.length > 0
-        ? (cm.products.length > 1
-            ? `${cm.products.length} Products (${cm.products.map((p: any) => p.cabinName).filter(Boolean).join(', ')})`
-            : (cm.products[0].cabinName || cm.cabinName || 'N/A'))
-        : (cm.cabinName || 'N/A');
+      let totalSeats = 0;
+      let subAmount = 0;
+      let totalAmt = 0;
+      let cabinSummary = 'N/A';
 
-      const totalSeats = cm.products && cm.products.length > 0
-        ? cm.products.reduce((acc: number, p: any) => acc + (p.noOfSeats || 0), 0)
-        : (cm.noOfSeats || 0);
-
-      const totalAmt = cm.totalAmount || (cm.products ? cm.products.reduce((acc: number, p: any) => acc + (p.totalAmount || 0), 0) : 0);
-      const subAmount = cm.amount || (cm.products ? cm.products.reduce((acc: number, p: any) => acc + (p.amount || 0), 0) : 0);
+      if (cm.products && cm.products.length > 0) {
+        totalSeats = cm.products.reduce((sum: number, p: any) => sum + (Number(p.noOfSeats) || 0), 0);
+        subAmount = cm.products.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+        totalAmt = cm.products.reduce((sum: number, p: any) => sum + (Number(p.totalAmount) || 0), 0);
+        cabinSummary = cm.products.length > 1
+          ? `${cm.products.length} Products (${cm.products.map((p: any) => p.cabinName).filter(Boolean).join(', ')})`
+          : (cm.products[0].cabinName || cm.cabinName || 'N/A');
+      } else {
+        totalSeats = Number(cm.noOfSeats) || 0;
+        subAmount = Number(cm.amount) || 0;
+        totalAmt = Number(cm.totalAmount) || 0;
+        cabinSummary = cm.cabinName || 'N/A';
+      }
 
       invoiceCreates.push(
         (prisma as any).invoiceRecord.create({

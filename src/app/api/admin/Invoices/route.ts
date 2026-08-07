@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     // ── Auto-dispatch on last day of month (runs only once, duplicate-safe) ──
     await autoDispatchIfLastDay();
 
-    // ── Auto-cleanup & Consolidation of multiple invoice records per client for current month ──
+    // ── Auto-cleanup & Re-sync of Invoice Records for Current Billing Month ──
     try {
       const now = new Date();
       const monthNames = [
@@ -38,44 +38,51 @@ export async function GET(request: Request) {
       const duplicateIdsToDelete: number[] = [];
 
       for (const [rawCmId, recs] of Object.entries(groupedByClient)) {
+        const cmId = Number(rawCmId);
+        const mainRecord = recs[0];
+
         if (recs.length > 1) {
-          const cmId = Number(rawCmId);
-          // Keep the main record (recs[0]) and delete extra split product rows
-          const mainRecord = recs[0];
           const extras = recs.slice(1);
           extras.forEach(r => duplicateIdsToDelete.push(r.id));
+        }
 
-          // Fetch full ClientMaster data to update mainRecord with consolidated amounts & cabin summary
-          const cm = await (prisma as any).clientMaster.findUnique({
-            where: { id: cmId },
-            include: { products: { orderBy: { sortOrder: 'asc' } } },
-          });
+        // Fetch full ClientMaster data to ensure mainRecord has exact correct product amounts
+        const cm = await (prisma as any).clientMaster.findUnique({
+          where: { id: cmId },
+          include: { products: { orderBy: { sortOrder: 'asc' } } },
+        });
 
-          if (cm) {
-            const cabinSummary = cm.products && cm.products.length > 0
-              ? (cm.products.length > 1
-                  ? `${cm.products.length} Products (${cm.products.map((p: any) => p.cabinName).filter(Boolean).join(', ')})`
-                  : (cm.products[0].cabinName || cm.cabinName || 'N/A'))
-              : (cm.cabinName || 'N/A');
+        if (cm) {
+          let totalSeats = 0;
+          let subAmount = 0;
+          let totalAmt = 0;
+          let cabinSummary = 'N/A';
 
-            const totalSeats = cm.products && cm.products.length > 0
-              ? cm.products.reduce((acc: number, p: any) => acc + (p.noOfSeats || 0), 0)
-              : (cm.noOfSeats || 0);
-
-            const totalAmt = cm.totalAmount || (cm.products ? cm.products.reduce((acc: number, p: any) => acc + (p.totalAmount || 0), 0) : 0);
-            const subAmount = cm.amount || (cm.products ? cm.products.reduce((acc: number, p: any) => acc + (p.amount || 0), 0) : 0);
-
-            await (prisma as any).invoiceRecord.update({
-              where: { id: mainRecord.id },
-              data: {
-                cabinName: cabinSummary,
-                noOfSeats: totalSeats,
-                amount: subAmount,
-                gstPercent: cm.gstPercent || (cm.products?.[0]?.gstPercent ?? 18),
-                totalAmount: totalAmt,
-              },
-            });
+          if (cm.products && cm.products.length > 0) {
+            totalSeats = cm.products.reduce((sum: number, p: any) => sum + (Number(p.noOfSeats) || 0), 0);
+            subAmount = cm.products.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+            totalAmt = cm.products.reduce((sum: number, p: any) => sum + (Number(p.totalAmount) || 0), 0);
+            cabinSummary = cm.products.length > 1
+              ? `${cm.products.length} Products (${cm.products.map((p: any) => p.cabinName).filter(Boolean).join(', ')})`
+              : (cm.products[0].cabinName || cm.cabinName || 'N/A');
+          } else {
+            totalSeats = Number(cm.noOfSeats) || 0;
+            subAmount = Number(cm.amount) || 0;
+            totalAmt = Number(cm.totalAmount) || 0;
+            cabinSummary = cm.cabinName || 'N/A';
           }
+
+          // Update mainRecord to reflect exact total amount & seats
+          await (prisma as any).invoiceRecord.update({
+            where: { id: mainRecord.id },
+            data: {
+              cabinName: cabinSummary,
+              noOfSeats: totalSeats,
+              amount: subAmount,
+              gstPercent: cm.gstPercent || (cm.products?.[0]?.gstPercent ?? 18),
+              totalAmount: totalAmt,
+            },
+          });
         }
       }
 
