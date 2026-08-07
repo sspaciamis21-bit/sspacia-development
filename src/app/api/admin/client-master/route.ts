@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     // ── Node-based data isolation ────────────────────────────────
     if (currentUserId) {
       // Admin filtering by specific location
-      if (isAdmin && locationId) {
+      if (isAdmin && locationId && locationId !== 'ALL') {
         const locationUserIds = await getUserIdsByLocation(parseInt(locationId, 10));
         if (locationUserIds) {
           where.createdById = { in: locationUserIds };
@@ -90,7 +90,26 @@ export async function GET(request: Request) {
       orderBy: { srNo: 'asc' },
     });
 
-    return NextResponse.json({ success: true, data: entries });
+    // Determine current billing month to mark entries already present in Invoices section
+    const now = new Date();
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const currentBillingMonth = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+
+    const dispatchedInvoices = await (prisma as any).invoiceRecord.findMany({
+      where: { billingMonth: currentBillingMonth },
+      select: { clientMasterId: true },
+    });
+    const dispatchedSet = new Set(dispatchedInvoices.map((inv: any) => inv.clientMasterId));
+
+    const dataWithInvoiceStatus = entries.map((entry: any) => ({
+      ...entry,
+      isDispatchedToInvoices: dispatchedSet.has(entry.id),
+    }));
+
+    return NextResponse.json({ success: true, data: dataWithInvoiceStatus });
   } catch (error) {
     console.error('Fetch client master entries error:', error);
     return NextResponse.json({ error: 'Failed to fetch client master entries' }, { status: 500 });

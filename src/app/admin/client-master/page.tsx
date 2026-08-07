@@ -115,6 +115,7 @@ interface ClientMasterEntry {
   sorRecdDate: string | null;
   paymentDueDay?: number | null;
   clientStatus: string | null;
+  isDispatchedToInvoices?: boolean;
   createdAt: string;
   createdBy: { id: number; name: string; email: string; assignedLocations?: { location: LocationOption }[] };
   contactPersons: ContactPerson[];
@@ -747,13 +748,18 @@ export default function ClientMasterRegistryPage() {
       const res = await fetch('/api/admin/client-master/dispatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sendType, clientMasterIds: ids })
+        body: JSON.stringify({
+          sendType,
+          clientMasterIds: ids,
+          locationId: selectedLocationFilter !== 'ALL' ? selectedLocationFilter : null,
+        }),
       });
       const json = await res.json();
 
       if (json.success) {
         toast.success(`✅ ${json.message}`);
         setSelectedIds([]);
+        fetchData();
       } else {
         toast.error(json.error || 'Failed to dispatch to Invoices section');
       }
@@ -1160,13 +1166,23 @@ export default function ClientMasterRegistryPage() {
                               <Eye size={12} /> View Record
                             </button>
 
-                            <button
-                              onClick={() => handleDispatchToInvoices('MANUAL', [entry.id])}
-                              disabled={dispatching}
-                              className="px-2 py-1 bg-blue-600 text-white font-bold text-[9px] uppercase tracking-wider hover:bg-blue-700 w-full flex items-center justify-center gap-1"
-                            >
-                              <Send size={10} /> Send to Invoice
-                            </button>
+                            {entry.isDispatchedToInvoices ? (
+                              <button
+                                disabled
+                                className="px-2 py-1 bg-emerald-50 text-emerald-800 font-bold text-[9px] uppercase tracking-wider w-full flex items-center justify-center gap-1 opacity-90 cursor-not-allowed border border-emerald-300 shadow-xs"
+                                title="This client entry is already present in the Invoices section for this month"
+                              >
+                                <CheckCircle2 size={10} className="text-emerald-600 shrink-0" /> Sent to Invoice
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleDispatchToInvoices('MANUAL', [entry.id])}
+                                disabled={dispatching}
+                                className="px-2 py-1 bg-blue-600 text-white font-bold text-[9px] uppercase tracking-wider hover:bg-blue-700 w-full flex items-center justify-center gap-1 shadow-xs"
+                              >
+                                <Send size={10} /> Send to Invoice
+                              </button>
+                            )}
 
                             <div className="flex items-center gap-1 mt-0.5">
                               <button

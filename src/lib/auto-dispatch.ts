@@ -2,8 +2,8 @@ import prisma from '@/lib/prisma';
 
 /**
  * Auto-dispatches all active ClientMaster entries to InvoiceRecords
- * on the last day of the month. Safe to call multiple times — 
- * has built-in duplicate prevention.
+ * on the last day of the month. Creates 1 single consolidated invoice per client.
+ * Safe to call multiple times — has built-in duplicate prevention.
  * 
  * Called automatically when anyone opens the Invoices page.
  */
@@ -49,44 +49,44 @@ export async function autoDispatchIfLastDay(): Promise<{ dispatched: boolean; co
       return { dispatched: false, count: 0, message: 'No active clients found' };
     }
 
-    // Create InvoiceRecord entries
+    // Create 1 InvoiceRecord entry per client
     const invoiceCreates: any[] = [];
 
     for (const cm of clientsToDispatch) {
-      const productRows = cm.products?.length > 0
-        ? cm.products
-        : [{
-            cabinName: cm.cabinName,
-            noOfSeats: cm.noOfSeats,
-            ratePerAgreement: cm.ratePerAgreement,
-            amount: cm.amount,
-            gstPercent: cm.gstPercent,
-            totalAmount: cm.totalAmount,
-          }];
+      const cabinSummary = cm.products && cm.products.length > 0
+        ? (cm.products.length > 1
+            ? `${cm.products.length} Products (${cm.products.map((p: any) => p.cabinName).filter(Boolean).join(', ')})`
+            : (cm.products[0].cabinName || cm.cabinName || 'N/A'))
+        : (cm.cabinName || 'N/A');
 
-      for (const product of productRows) {
-        invoiceCreates.push(
-          (prisma as any).invoiceRecord.create({
-            data: {
-              clientMasterId: cm.id,
-              srNo: cm.srNo,
-              companyName: cm.companyName,
-              cabinName: product.cabinName,
-              noOfSeats: product.noOfSeats,
-              ratePerAgreement: product.ratePerAgreement,
-              amount: product.amount,
-              gstPercent: product.gstPercent,
-              totalAmount: product.totalAmount,
-              gstNo: cm.gstNo,
-              billingMonth: currentBillingMonth,
-              sendType: 'AUTOMATIC_MONTH_END',
-              sentAt: now,
-              status: 'PENDING_CM_REVIEW',
-              createdById: cm.createdById,
-            },
-          })
-        );
-      }
+      const totalSeats = cm.products && cm.products.length > 0
+        ? cm.products.reduce((acc: number, p: any) => acc + (p.noOfSeats || 0), 0)
+        : (cm.noOfSeats || 0);
+
+      const totalAmt = cm.totalAmount || (cm.products ? cm.products.reduce((acc: number, p: any) => acc + (p.totalAmount || 0), 0) : 0);
+      const subAmount = cm.amount || (cm.products ? cm.products.reduce((acc: number, p: any) => acc + (p.amount || 0), 0) : 0);
+
+      invoiceCreates.push(
+        (prisma as any).invoiceRecord.create({
+          data: {
+            clientMasterId: cm.id,
+            srNo: cm.srNo,
+            companyName: cm.companyName,
+            cabinName: cabinSummary,
+            noOfSeats: totalSeats,
+            ratePerAgreement: cm.ratePerAgreement || (cm.products?.[0]?.ratePerAgreement ?? null),
+            amount: subAmount,
+            gstPercent: cm.gstPercent || (cm.products?.[0]?.gstPercent ?? 18),
+            totalAmount: totalAmt,
+            gstNo: cm.gstNo,
+            billingMonth: currentBillingMonth,
+            sendType: 'AUTOMATIC_MONTH_END',
+            sentAt: now,
+            status: 'PENDING_CM_REVIEW',
+            createdById: cm.createdById,
+          },
+        })
+      );
     }
 
     const createdRecords = await (prisma as any).$transaction(invoiceCreates);

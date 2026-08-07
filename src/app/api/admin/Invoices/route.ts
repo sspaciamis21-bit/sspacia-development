@@ -12,6 +12,87 @@ export async function GET(request: Request) {
     // ── Auto-dispatch on last day of month (runs only once, duplicate-safe) ──
     await autoDispatchIfLastDay();
 
+    // ── Auto-cleanup & Consolidation of multiple invoice records per client for current month ──
+    try {
+      const now = new Date();
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      const currentBillingMonth = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+
+      const allRecords = await (prisma as any).invoiceRecord.findMany({
+        where: { billingMonth: currentBillingMonth },
+        orderBy: { id: 'desc' },
+      });
+
+      // Group records by clientMasterId
+      const groupedByClient: Record<number, any[]> = {};
+      for (const rec of allRecords) {
+        if (!groupedByClient[rec.clientMasterId]) {
+          groupedByClient[rec.clientMasterId] = [];
+        }
+        groupedByClient[rec.clientMasterId].push(rec);
+      }
+
+      const duplicateIdsToDelete: number[] = [];
+
+      for (const [rawCmId, recs] of Object.entries(groupedByClient)) {
+        if (recs.length > 1) {
+          const cmId = Number(rawCmId);
+          // Keep the main record (recs[0]) and delete extra split product rows
+          const mainRecord = recs[0];
+          const extras = recs.slice(1);
+          extras.forEach(r => duplicateIdsToDelete.push(r.id));
+
+          // Fetch full ClientMaster data to update mainRecord with consolidated amounts & cabin summary
+          const cm = await (prisma as any).clientMaster.findUnique({
+            where: { id: cmId },
+            include: { products: { orderBy: { sortOrder: 'asc' } } },
+          });
+
+          if (cm) {
+            const cabinSummary = cm.products && cm.products.length > 0
+              ? (cm.products.length > 1
+                  ? `${cm.products.length} Products (${cm.products.map((p: any) => p.cabinName).filter(Boolean).join(', ')})`
+                  : (cm.products[0].cabinName || cm.cabinName || 'N/A'))
+              : (cm.cabinName || 'N/A');
+
+            const totalSeats = cm.products && cm.products.length > 0
+              ? cm.products.reduce((acc: number, p: any) => acc + (p.noOfSeats || 0), 0)
+              : (cm.noOfSeats || 0);
+
+            const totalAmt = cm.totalAmount || (cm.products ? cm.products.reduce((acc: number, p: any) => acc + (p.totalAmount || 0), 0) : 0);
+            const subAmount = cm.amount || (cm.products ? cm.products.reduce((acc: number, p: any) => acc + (p.amount || 0), 0) : 0);
+
+            await (prisma as any).invoiceRecord.update({
+              where: { id: mainRecord.id },
+              data: {
+                cabinName: cabinSummary,
+                noOfSeats: totalSeats,
+                amount: subAmount,
+                gstPercent: cm.gstPercent || (cm.products?.[0]?.gstPercent ?? 18),
+                totalAmount: totalAmt,
+              },
+            });
+          }
+        }
+      }
+
+      if (duplicateIdsToDelete.length > 0) {
+        await (prisma as any).attachedInvoice.deleteMany({
+          where: { invoiceRecordId: { in: duplicateIdsToDelete } },
+        });
+
+        await (prisma as any).invoiceRecord.deleteMany({
+          where: { id: { in: duplicateIdsToDelete } },
+        });
+        console.log(`[Invoices API] Consolidated multiple product rows into 1 invoice per client (deleted ${duplicateIdsToDelete.length} extra split rows for ${currentBillingMonth}).`);
+      }
+    } catch (cleanErr) {
+      console.warn('Deduplication cleanup warning:', cleanErr);
+    }
+
     // Authenticate the current user
     const cookieStore = await cookies();
     const token = cookieStore.get('auth-token')?.value;

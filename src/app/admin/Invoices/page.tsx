@@ -28,7 +28,8 @@ import {
   Paperclip,
   Shield,
   Download,
-  Tag
+  Tag,
+  Edit2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FadeUp } from '@/components/ui/fade-up';
@@ -150,6 +151,33 @@ export default function AdminInvoicesWorkflowPage() {
   // View Full Record Details Modal
   const [entryToViewDetails, setEntryToViewDetails] = useState<InvoiceRecord | null>(null);
 
+  // Edit Invoice Record Modal State
+  const [entryToEditInvoice, setEntryToEditInvoice] = useState<InvoiceRecord | null>(null);
+  const [editCompanyName, setEditCompanyName] = useState('');
+  const [editCabinName, setEditCabinName] = useState('');
+  const [editNoOfSeats, setEditNoOfSeats] = useState<number | ''>('');
+  const [editRatePerAgreement, setEditRatePerAgreement] = useState<number | ''>('');
+  const [editAmount, setEditAmount] = useState<number | ''>('');
+  const [editGstPercent, setEditGstPercent] = useState<number | ''>('');
+  const [editTotalAmount, setEditTotalAmount] = useState<number | ''>('');
+  const [editGstNo, setEditGstNo] = useState('');
+  const [editBillingMonth, setEditBillingMonth] = useState('');
+  const [editStatus, setEditStatus] = useState<InvoiceRecord['status']>('PENDING_CM_REVIEW');
+
+  const handleOpenEditModal = (inv: InvoiceRecord) => {
+    setEntryToEditInvoice(inv);
+    setEditCompanyName(inv.companyName || '');
+    setEditCabinName(inv.cabinName || '');
+    setEditNoOfSeats(inv.noOfSeats ?? '');
+    setEditRatePerAgreement(inv.ratePerAgreement ?? '');
+    setEditAmount(inv.amount ?? '');
+    setEditGstPercent(inv.gstPercent ?? '');
+    setEditTotalAmount(inv.totalAmount ?? '');
+    setEditGstNo(inv.gstNo || '');
+    setEditBillingMonth(inv.billingMonth || '');
+    setEditStatus(inv.status);
+  };
+
   const canUseNodeFilter = isAdmin || canAccessAccountant;
 
   // Fetch locations for Admin & Accountant filter dropdown
@@ -225,6 +253,66 @@ export default function AdminInvoicesWorkflowPage() {
       }
     } catch {
       toast.error('Error updating invoice status');    
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Save Edit Invoice Record
+  const handleSaveEditInvoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!entryToEditInvoice) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/Invoices/${entryToEditInvoice.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyName: editCompanyName,
+          cabinName: editCabinName,
+          noOfSeats: editNoOfSeats,
+          ratePerAgreement: editRatePerAgreement,
+          amount: editAmount,
+          gstPercent: editGstPercent,
+          totalAmount: editTotalAmount,
+          gstNo: editGstNo,
+          billingMonth: editBillingMonth,
+          status: editStatus,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        toast.success('Invoice record updated successfully!');
+        setEntryToEditInvoice(null);
+        fetchData();
+      } else {
+        toast.error(json.error || 'Failed to update invoice record');
+      }
+    } catch {
+      toast.error('Error updating invoice record');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Delete Invoice Record
+  const handleDeleteInvoice = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this invoice record from the Invoices section?')) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/Invoices/${id}`, {
+        method: 'DELETE',
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success('Invoice record deleted successfully!');
+        fetchData();
+      } else {
+        toast.error(json.error || 'Failed to delete invoice record');
+      }
+    } catch {
+      toast.error('Error deleting invoice record');
     } finally {
       setActionLoading(false);
     }
@@ -699,12 +787,29 @@ export default function AdminInvoicesWorkflowPage() {
                             </>
                           )}
 
-                          <button
-                            onClick={() => setEntryToViewDetails(invoice)}
-                            className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-600 hover:text-black flex items-center justify-center gap-1"
-                          >
-                            <Eye size={10} /> View Details
-                          </button>
+                          <div className="flex items-center gap-1 mt-1 border-t border-neutral-100 pt-1 w-full justify-center">
+                            <button
+                              onClick={() => setEntryToViewDetails(invoice)}
+                              className="p-1 text-neutral-500 hover:text-black hover:bg-neutral-100"
+                              title="View details"
+                            >
+                              <Eye size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleOpenEditModal(invoice)}
+                              className="p-1 text-neutral-500 hover:text-[#006064] hover:bg-neutral-100"
+                              title="Edit invoice record"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteInvoice(invoice.id)}
+                              className="p-1 text-neutral-500 hover:text-red-600 hover:bg-neutral-100"
+                              title="Delete invoice record"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -1206,6 +1311,195 @@ export default function AdminInvoicesWorkflowPage() {
                   Close
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL 4: EDIT INVOICE RECORD MODAL */}
+      <AnimatePresence>
+        {entryToEditInvoice && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-xs overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 15 }}
+              className="bg-white border border-[var(--outline-variant)] w-full max-w-2xl shadow-2xl overflow-hidden font-sans text-xs"
+            >
+              <div className="p-5 bg-[#006064] text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 bg-white/10 flex items-center justify-center font-bold text-sm">
+                    #{entryToEditInvoice.srNo}
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold tracking-tight uppercase">
+                      Edit Invoice Record (#{entryToEditInvoice.srNo})
+                    </h2>
+                    <p className="text-xs text-white/80 font-light">
+                      Modify company name, seat rates, billing month, and status parameters.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setEntryToEditInvoice(null)}
+                  className="text-white/80 hover:text-white p-1.5 hover:bg-white/10 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditInvoice} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#616161] mb-1">
+                      Company Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editCompanyName}
+                      onChange={(e) => setEditCompanyName(e.target.value)}
+                      className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs font-bold focus:outline-none focus:border-[#006064]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#616161] mb-1">
+                      Cabin Name / Product
+                    </label>
+                    <input
+                      type="text"
+                      value={editCabinName}
+                      onChange={(e) => setEditCabinName(e.target.value)}
+                      placeholder="e.g. Dedicated Cabin"
+                      className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs font-bold focus:outline-none focus:border-[#006064]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#616161] mb-1">
+                      No of Seats
+                    </label>
+                    <input
+                      type="number"
+                      value={editNoOfSeats}
+                      onChange={(e) => setEditNoOfSeats(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs font-bold focus:outline-none focus:border-[#006064]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#616161] mb-1">
+                      Rate Per Agreement (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={editRatePerAgreement}
+                      onChange={(e) => setEditRatePerAgreement(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs font-bold focus:outline-none focus:border-[#006064]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#616161] mb-1">
+                      Amount (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs font-bold focus:outline-none focus:border-[#006064]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#616161] mb-1">
+                      GST (%)
+                    </label>
+                    <input
+                      type="number"
+                      value={editGstPercent}
+                      onChange={(e) => setEditGstPercent(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs font-bold focus:outline-none focus:border-[#006064]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#616161] mb-1">
+                      Total Amount (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={editTotalAmount}
+                      onChange={(e) => setEditTotalAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs font-bold focus:outline-none focus:border-[#006064] text-[#006064]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#616161] mb-1">
+                      GST No
+                    </label>
+                    <input
+                      type="text"
+                      value={editGstNo}
+                      onChange={(e) => setEditGstNo(e.target.value)}
+                      className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs font-mono font-bold focus:outline-none focus:border-[#006064]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#616161] mb-1">
+                      Billing Month
+                    </label>
+                    <input
+                      type="text"
+                      value={editBillingMonth}
+                      onChange={(e) => setEditBillingMonth(e.target.value)}
+                      placeholder="e.g. August 2026"
+                      className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs font-bold focus:outline-none focus:border-[#006064]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[#616161] mb-1">
+                      Workflow Status
+                    </label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value as any)}
+                      className="w-full bg-white border border-[var(--outline-variant)] px-3 py-2 text-xs font-bold focus:outline-none focus:border-[#006064]"
+                    >
+                      <option value="PENDING_CM_REVIEW">Pending CM Review</option>
+                      <option value="SENT_TO_ACCOUNTANT">Sent to Accountant</option>
+                      <option value="INVOICE_ATTACHED">Invoice Attached</option>
+                      <option value="APPROVED">Approved</option>
+                      <option value="REJECTED_WITH_REMARKS">Rejected with Remarks</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-200">
+                  <button
+                    type="button"
+                    onClick={() => setEntryToEditInvoice(null)}
+                    className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-[#1B1C1C] font-bold text-xs uppercase tracking-wider"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={actionLoading}
+                    className="px-5 py-2 bg-[#006064] hover:bg-teal-900 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2"
+                  >
+                    {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                    Save Invoice Changes
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
