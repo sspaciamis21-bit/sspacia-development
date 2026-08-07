@@ -93,6 +93,15 @@ interface InvoiceRecord {
     sorAmount?: number | null;
     sorRecdDate?: string | null;
     contactPersons?: ContactPerson[];
+    products?: {
+      id?: number;
+      cabinName: string | null;
+      noOfSeats: number | null;
+      ratePerAgreement: number | null;
+      amount: number | null;
+      gstPercent: number | null;
+      totalAmount: number | null;
+    }[];
   };
   attachedInvoice?: AttachedInvoice | null;
 }
@@ -795,13 +804,15 @@ export default function AdminInvoicesWorkflowPage() {
                             >
                               <Eye size={12} />
                             </button>
-                            <button
-                              onClick={() => handleOpenEditModal(invoice)}
-                              className="p-1 text-neutral-500 hover:text-[#006064] hover:bg-neutral-100"
-                              title="Edit invoice record"
-                            >
-                              <Edit2 size={12} />
-                            </button>
+                            {userRoleView === 'CM' && (
+                              <button
+                                onClick={() => handleOpenEditModal(invoice)}
+                                className="p-1 text-neutral-500 hover:text-[#006064] hover:bg-neutral-100"
+                                title="Edit invoice record"
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDeleteInvoice(invoice.id)}
                               className="p-1 text-neutral-500 hover:text-red-600 hover:bg-neutral-100"
@@ -1102,34 +1113,122 @@ export default function AdminInvoicesWorkflowPage() {
                 </button>
               </div>
 
-              {/* SECTION 1: Cabin, Seats & Billing Amounts */}
-              <div className="space-y-2">
+              {/* SECTION 1: Cabin, Seating & Line-Item Products Breakdown */}
+              <div className="space-y-3">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--primary)] flex items-center gap-1.5">
                   <Building2 size={14} /> Cabin, Seating & Billing Amounts
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/40">
-                  <div>
-                    <div className="font-bold uppercase text-[#616161] text-[9px]">Cabin Name</div>
-                    <div className="font-bold text-[#1B1C1C] mt-0.5 text-sm">{entryToViewDetails.cabinName || 'N/A'}</div>
-                  </div>
-                  <div>
-                    <div className="font-bold uppercase text-[#616161] text-[9px]">Seats & Agreement Rate</div>
-                    <div className="font-bold text-[#1B1C1C] mt-0.5">
-                      {entryToViewDetails.noOfSeats || 0} seats @ ₹
-                      {Number(entryToViewDetails.ratePerAgreement || 0).toLocaleString('en-IN')}
+
+                {entryToViewDetails.clientMaster?.products && entryToViewDetails.clientMaster.products.length > 0 ? (
+                  <div className="space-y-3">
+                    {entryToViewDetails.clientMaster.products.map((p, idx) => {
+                      const isParking = p.cabinName?.toLowerCase().includes('parking');
+                      return (
+                        <div key={idx} className="bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/50 relative">
+                          <div className="flex items-center justify-between border-b border-neutral-200 pb-2 mb-3">
+                            <div className="font-extrabold uppercase text-[#006064] text-[10px] tracking-wider flex items-center gap-2">
+                              ITEM #{idx + 1}
+                              {isParking && (
+                                <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[8px] font-black uppercase tracking-wider">
+                                  PARKING MODE
+                                </span>
+                              )}
+                            </div>
+                            <div className="font-mono font-bold text-xs text-[#006064]">
+                              Total: ₹{Number(p.totalAmount || 0).toLocaleString('en-IN')}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+                            <div>
+                              <div className="font-bold uppercase text-[#616161] text-[9px]">Cabin / Product Name</div>
+                              <div className="font-bold text-[#1B1C1C] mt-0.5">{p.cabinName || 'N/A'}</div>
+                            </div>
+
+                            <div>
+                              <div className="font-bold uppercase text-[#616161] text-[9px]">
+                                {isParking ? 'No of Parking' : 'No of Seats'}
+                              </div>
+                              <div className="font-bold text-[#1B1C1C] mt-0.5">{p.noOfSeats || 0}</div>
+                            </div>
+
+                            <div>
+                              <div className="font-bold uppercase text-[#616161] text-[9px]">Rate As Per Agreement (₹)</div>
+                              <div className="font-bold text-[#1B1C1C] mt-0.5">₹{Number(p.ratePerAgreement || 0).toLocaleString('en-IN')}</div>
+                            </div>
+
+                            <div>
+                              <div className="font-bold uppercase text-[#616161] text-[9px]">Amount (₹)</div>
+                              <div className="font-bold text-blue-700 mt-0.5">₹{Number(p.amount || 0).toLocaleString('en-IN')}</div>
+                            </div>
+
+                            <div>
+                              <div className="font-bold uppercase text-[#616161] text-[9px]">GST (%)</div>
+                              <div className="font-bold text-neutral-700 mt-0.5">{p.gstPercent ?? 18}%</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* GRAND TOTAL SUMMARY BAR */}
+                    <div className="p-4 bg-[#00363A] text-white flex flex-wrap items-center justify-between gap-4">
+                      <div className="font-extrabold uppercase text-xs tracking-wider">
+                        Grand Total (All Items)
+                      </div>
+                      <div className="flex items-center gap-6 text-xs font-mono">
+                        <div>
+                          <span className="text-white/70 text-[9px] uppercase tracking-wider block">Total Subtotal</span>
+                          <span className="font-bold text-sm">
+                            ₹{Number(
+                              entryToViewDetails.clientMaster.products.reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+                            ).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-white/70 text-[9px] uppercase tracking-wider block">Total GST</span>
+                          <span className="font-bold text-sm">
+                            ₹{Number(
+                              entryToViewDetails.clientMaster.products.reduce((sum, p) => sum + (Number(p.totalAmount || 0) - Number(p.amount || 0)), 0)
+                            ).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="bg-white/10 px-3 py-1.5 border border-white/20">
+                          <span className="text-white/70 text-[9px] uppercase tracking-wider block">Grand Total</span>
+                          <span className="font-black text-base text-emerald-300">
+                            ₹{Number(
+                              entryToViewDetails.clientMaster.products.reduce((sum, p) => sum + (Number(p.totalAmount) || 0), 0)
+                            ).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <div className="font-bold uppercase text-[#616161] text-[9px]">GST %</div>
-                    <div className="font-bold text-[#1B1C1C] mt-0.5">{entryToViewDetails.gstPercent ?? 18}%</div>
-                  </div>
-                  <div>
-                    <div className="font-bold uppercase text-[#616161] text-[9px]">Total Amount (Amt + GST)</div>
-                    <div className="font-black text-base text-[var(--primary)] mt-0.5">
-                      ₹{Number(entryToViewDetails.totalAmount || 0).toLocaleString('en-IN')}
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#F8F9FA] p-4 border border-[var(--outline-variant)]/40">
+                    <div>
+                      <div className="font-bold uppercase text-[#616161] text-[9px]">Cabin Name</div>
+                      <div className="font-bold text-[#1B1C1C] mt-0.5 text-sm">{entryToViewDetails.cabinName || 'N/A'}</div>
+                    </div>
+                    <div>
+                      <div className="font-bold uppercase text-[#616161] text-[9px]">Seats & Agreement Rate</div>
+                      <div className="font-bold text-[#1B1C1C] mt-0.5">
+                        {entryToViewDetails.noOfSeats || 0} seats @ ₹
+                        {Number(entryToViewDetails.ratePerAgreement || 0).toLocaleString('en-IN')}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-bold uppercase text-[#616161] text-[9px]">GST %</div>
+                      <div className="font-bold text-[#1B1C1C] mt-0.5">{entryToViewDetails.gstPercent ?? 18}%</div>
+                    </div>
+                    <div>
+                      <div className="font-bold uppercase text-[#616161] text-[9px]">Total Amount (Amt + GST)</div>
+                      <div className="font-black text-base text-[var(--primary)] mt-0.5">
+                        ₹{Number(entryToViewDetails.totalAmount || 0).toLocaleString('en-IN')}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* SECTION 2: Head Office & GST Details */}

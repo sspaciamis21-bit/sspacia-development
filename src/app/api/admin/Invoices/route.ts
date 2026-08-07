@@ -158,6 +158,7 @@ export async function GET(request: Request) {
         clientMaster: {
           include: {
             contactPersons: { orderBy: { sortOrder: 'asc' } },
+            products: { orderBy: { sortOrder: 'asc' } },
           },
         },
         createdBy: {
