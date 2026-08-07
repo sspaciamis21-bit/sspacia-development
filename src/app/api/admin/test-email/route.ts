@@ -108,6 +108,7 @@ export async function POST(request: Request) {
         const info = await transporter.sendMail({
           from: `SSPACIA Admin <${sender}>`,
           to: receiver,
+          cc: 'praveen.agarwal1@gmail.com',
           subject: subject,
           text: content,
           attachments: mailAttachments,

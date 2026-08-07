@@ -203,15 +203,6 @@ export default function AdminLayout({
           </div>
 
           <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => setIsTestEmailModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#006064] hover:bg-teal-900 text-white text-[10px] font-black uppercase tracking-wider transition-all shadow-xs"
-              title="Test Email Functionality (Super Admin Only)"
-            >
-              <Mail size={13} /> Test Email
-            </button>
-
             <NotificationBell />
           </div>
         </header>
@@ -224,11 +215,6 @@ export default function AdminLayout({
       <ManageProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
-      />
-
-      <TestEmailModal
-        isOpen={isTestEmailModalOpen}
-        onClose={() => setIsTestEmailModalOpen(false)}
       />
     </div>
   );

@@ -36,6 +36,12 @@ export function TestEmailModal({ isOpen, onClose }: TestEmailModalProps) {
   const [isSending, setIsSending] = useState(false);
   const [responseLog, setResponseLog] = useState<{ success: boolean; message: string; details?: any } | null>(null);
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   // Read files as Base64 in memory (No database involved)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -128,35 +134,28 @@ export function TestEmailModal({ isOpen, onClose }: TestEmailModalProps) {
     }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
-            transition={{ duration: 0.2 }}
-            className="bg-white border border-neutral-300 w-full max-w-2xl shadow-2xl overflow-hidden font-sans text-xs"
+            className="bg-white border border-[var(--outline-variant)] w-full max-w-2xl shadow-2xl overflow-hidden font-sans text-xs my-6"
           >
             {/* Modal Header */}
-            <div className="bg-[#006064] text-white p-5 flex items-center justify-between border-b border-teal-800">
+            <div className="p-5 bg-[#006064] text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-teal-800/80 flex items-center justify-center border border-teal-600/50 shadow-inner">
-                  <Mail size={20} className="text-teal-200" />
+                <div className="h-10 w-10 bg-white/10 flex items-center justify-center font-bold text-lg">
+                  ✉️
                 </div>
                 <div>
-                  <h2 className="text-base font-black uppercase tracking-wider flex items-center gap-2">
-                    Test Email Functionality <span className="bg-amber-400 text-black text-[9px] px-2 py-0.5 font-bold">SUPER ADMIN ONLY</span>
+                  <h2 className="text-base font-bold tracking-tight uppercase">
+                    Direct Nodemailer SMTP Email System
                   </h2>
-                  <p className="text-[11px] text-teal-100 font-light mt-0.5">
-                    Zoho Mail SMTP dispatch test terminal (cm@sspacia.com)
+                  <p className="text-xs text-white/80 font-light">
+                    Send test emails & trigger center-grouped daily 9 AM agreement/lock-in alert emails from <strong className="text-white">cm@sspacia.com</strong>.
                   </p>
                 </div>
               </div>
@@ -164,9 +163,9 @@ export function TestEmailModal({ isOpen, onClose }: TestEmailModalProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 hover:bg-teal-700 text-teal-200 hover:text-white transition-colors"
+                className="text-white/80 hover:text-white p-1.5 hover:bg-white/10 transition-colors"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
@@ -384,32 +383,73 @@ export function TestEmailModal({ isOpen, onClose }: TestEmailModalProps) {
               )}
 
               {/* Footer Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-200">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-neutral-200">
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="px-5 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-[#1B1C1C] font-bold text-xs uppercase tracking-wider transition-colors"
+                  onClick={async () => {
+                    setIsSending(true);
+                    try {
+                      const res = await fetch('/api/admin/cron/agreement-alerts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ receiver: receiver.trim() || 'cm@sspacia.com' }),
+                      });
+                      const json = await res.json();
+                      if (json.success) {
+                        toast.success(`✅ ${json.message}`);
+                        setResponseLog({
+                          success: true,
+                          message: json.message,
+                          details: json.result,
+                        });
+                      } else {
+                        toast.error(json.error || 'Failed to dispatch daily agreement alert emails');
+                        setResponseLog({
+                          success: false,
+                          message: json.error || 'Failed to dispatch daily agreement alert emails',
+                        });
+                      }
+                    } catch {
+                      toast.error('Error triggering daily agreement alert emails');
+                    } finally {
+                      setIsSending(false);
+                    }
+                  }}
+                  disabled={isSending}
+                  className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                  title="Dispatches center-grouped 60-day agreement & 15-day lock-in expiration alert emails from cm@sspacia.com"
                 >
-                  Cancel / Close
+                  <Sparkles size={14} />
+                  Trigger 9 AM Daily Alert Emails
                 </button>
 
-                <button
-                  type="submit"
-                  disabled={isSending}
-                  className="px-6 py-2.5 bg-[#006064] hover:bg-teal-900 text-white font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 shadow-md disabled:opacity-50"
-                >
-                  {isSending ? (
-                    <>
-                      <Loader2 size={15} className="animate-spin" />
-                      Sending Email...
-                    </>
-                  ) : (
-                    <>
-                      <Send size={14} />
-                      Send Test Email {selectedFiles.length > 0 && `(${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''})`}
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-2 ml-auto">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-5 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-[#1B1C1C] font-bold text-xs uppercase tracking-wider transition-colors"
+                  >
+                    Cancel / Close
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isSending}
+                    className="px-6 py-2.5 bg-[#006064] hover:bg-teal-900 text-white font-bold text-xs uppercase tracking-widest transition-all flex items-center gap-2 shadow-md disabled:opacity-50"
+                  >
+                    {isSending ? (
+                      <>
+                        <Loader2 size={15} className="animate-spin" />
+                        Sending Email...
+                      </>
+                    ) : (
+                      <>
+                        <Send size={14} />
+                        Send Test Email {selectedFiles.length > 0 && `(${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''})`}
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </motion.div>
