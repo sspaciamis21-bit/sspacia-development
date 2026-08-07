@@ -18,7 +18,8 @@ import {
   Calendar,
   Sparkles,
   ShieldCheck,
-  FileText
+  FileText,
+  Mail,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,6 +27,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useSidebar } from '@/context/SidebarContext';
 import { ManageProfileModal } from '@/components/profile/ManageProfileModal';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { TestEmailModal } from '@/components/admin/TestEmailModal';
 
 const sidebarItems = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -50,6 +52,7 @@ export default function AdminLayout({
 }) {
   const { isSidebarOpen, setIsSidebarOpen } = useSidebar();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isTestEmailModalOpen, setIsTestEmailModalOpen] = useState(false);
   const { user, isLoading, logout, isRole } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -200,6 +203,15 @@ export default function AdminLayout({
           </div>
 
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setIsTestEmailModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#006064] hover:bg-teal-900 text-white text-[10px] font-black uppercase tracking-wider transition-all shadow-xs"
+              title="Test Email Functionality (Super Admin Only)"
+            >
+              <Mail size={13} /> Test Email
+            </button>
+
             <NotificationBell />
           </div>
         </header>
@@ -212,6 +224,11 @@ export default function AdminLayout({
       <ManageProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+      />
+
+      <TestEmailModal
+        isOpen={isTestEmailModalOpen}
+        onClose={() => setIsTestEmailModalOpen(false)}
       />
     </div>
   );

@@ -87,7 +87,7 @@ export async function GET(request: Request) {
           orderBy: { sortOrder: 'asc' },
         },
       },
-      orderBy: { srNo: 'desc' },
+      orderBy: { srNo: 'asc' },
     });
 
     return NextResponse.json({ success: true, data: entries });

@@ -1027,8 +1027,9 @@ export default function ClientMasterRegistryPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100 font-medium">
-                  {filteredEntries.map((entry) => {
+                  {filteredEntries.map((entry, index) => {
                     const isSelected = selectedIds.includes(entry.id);
+                    const displaySrNo = index + 1;
                     return (
                       <tr
                         key={entry.id}
@@ -1041,7 +1042,7 @@ export default function ClientMasterRegistryPage() {
                         </td>
 
                         <td className="p-3 text-center font-mono font-bold text-neutral-600 bg-neutral-50/50">
-                          #{entry.srNo}
+                          #{displaySrNo}
                         </td>
 
                         <td className="p-3">
