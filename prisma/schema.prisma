@@ -190,6 +190,7 @@ model User {
   contractsCreated  Contract[]      @relation("ContractCreator")
   contractVersions  ContractVersion[] @relation("VersionCreator")
   negotiationMessages NegotiationMessage[]
+  updatedExpenseSheets LocationExpenseSheet[]
 
   @@index([email])
   @@index([roleId])
@@ -301,6 +302,7 @@ model Location {
   products       Product[]
   assignedUsers  UserLocation[]
   supportTickets SupportTicket[]
+  expenseSheets  LocationExpenseSheet[]
 
 
   @@index([cityId])
@@ -1066,5 +1068,23 @@ model InvoiceProduct {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 }
+
+model LocationExpenseSheet {
+  id          Int      @id @default(autoincrement())
+  locationId  Int      @unique
+  title       String   @default("Center Expenses")
+  columns     Json
+  rows        Json
+  updatedById Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  updatedBy   User?    @relation(fields: [updatedById], references: [id])
+
+  @@index([locationId])
+  @@index([updatedById])
+}
+
 
 

@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   FileText,
   Mail,
+  ReceiptText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -42,7 +43,7 @@ const sidebarItems = [
   { name: 'Documents', href: '/manager/documents', icon: FileText },
   { name: 'Client Master', href: '/admin/client-master', icon: FileText },
   { name: 'Invoices', href: '/admin/Invoices', icon: FileText },
-
+  { name: 'Expenses', href: '/admin/expenses', icon: ReceiptText },
 ];
 
 export default function AdminLayout({
