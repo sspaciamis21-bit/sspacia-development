@@ -5,7 +5,8 @@ process.env.TZ = 'Asia/Kolkata';
 (function trace(msg) {
   try {
     const fs0 = require('fs'), p0 = require('path');
-    const target = p0.resolve(__dirname, '..', '..', '..', 'public_html', 'startup-trace.txt');
+    const m = __dirname.match(/^(.*\/domains\/[^/]+)\//);
+    const target = m ? p0.join(m[1], 'public_html', 'startup-trace.txt') : p0.resolve(__dirname, '..', '..', '..', 'public_html', 'startup-trace.txt');
     fs0.appendFileSync(target, `${new Date().toISOString()} ${msg} | node ${process.version} | PORT=${process.env.PORT || 'unset'} | main=${require.main === module} | cwd=${process.cwd()} | dir=${__dirname} | env=${Object.keys(process.env).filter((k) => /^DB_|DATABASE_URL|^PORT$/.test(k)).join(',')}\n`);
   } catch (e) { /* ignore */ }
   global.__trace = trace;
