@@ -1,4 +1,5 @@
 'use strict';
+console.log(JSON.stringify({ timestamp: new Date().toISOString(), level: 'info', message: `server.js loading (node ${process.version}, PORT=${process.env.PORT || 'unset'}, main=${require.main === module})` }));
 process.env.TZ = 'Asia/Kolkata';
 
 const path = require('path');
@@ -74,8 +75,9 @@ app.use((err, req, res, next) => {
 connectWithRetry();
 
 // Run directly (node server.js) → listen. Imported by a host runtime (Hostinger / Passenger) → export the app.
-if (require.main === module) {
-  app.listen(PORT, () => log('info', `SSPACIA Sales Autopilot listening on ${PORT}`));
+if (require.main === module || process.env.PORT) {
+  const server = app.listen(PORT, () => log('info', `SSPACIA Sales Autopilot listening on ${PORT}`));
+  server.on('error', (e) => log('error', `listen failed on ${PORT}: ${e.message}`));
 }
 
 module.exports = app;
