@@ -1,0 +1,37 @@
+name: Probe deployed site
+on:
+  workflow_dispatch:
+  push:
+    branches: [sales-autopilot]
+    paths: ['.github/workflows/probe.yml']
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe health and home page
+        run: |
+          set +e
+          BASE="https://forestgreen-narwhal-176171.hostingersite.com"
+          {
+            echo "probe_at=$(date -u +%FT%TZ)"
+            echo "--- /api/health"
+            curl -sS -m 30 -w '\nhttp_code=%{http_code}\n' "$BASE/api/health"
+            echo "--- / (first 600 bytes)"
+            curl -sS -m 30 -w '\nhttp_code=%{http_code}\n' "$BASE/" | head -c 600; echo
+            echo "--- /api/auth/status"
+            curl -sS -m 30 -w '\nhttp_code=%{http_code}\n' "$BASE/api/auth/status"
+            echo "--- /app.js head"
+            curl -sS -m 30 -o /dev/null -w 'http_code=%{http_code} size=%{size_download}\n' "$BASE/app.js"
+          } > probe-result.txt 2>&1
+          cat probe-result.txt
+      - name: Publish result to probe-results branch
+        run: |
+          git config user.name "probe-bot"
+          git config user.email "probe-bot@users.noreply.github.com"
+          mkdir out && mv probe-result.txt out/
+          cd out && git init -q -b probe-results && git add . && git commit -q -m "probe $(date -u +%FT%TZ)"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" probe-results
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
