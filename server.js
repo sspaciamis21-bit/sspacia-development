@@ -1,6 +1,15 @@
 'use strict';
 console.log(JSON.stringify({ timestamp: new Date().toISOString(), level: 'info', message: `server.js loading (node ${process.version}, PORT=${process.env.PORT || 'unset'}, main=${require.main === module})` }));
 process.env.TZ = 'Asia/Kolkata';
+// Startup trace into the web root (diagnostics for hosts that hide runtime logs); harmless if the path is not writable.
+(function trace(msg) {
+  try {
+    const fs0 = require('fs'), p0 = require('path');
+    const target = p0.resolve(__dirname, '..', '..', '..', 'public_html', 'startup-trace.txt');
+    fs0.appendFileSync(target, `${new Date().toISOString()} ${msg} | node ${process.version} | PORT=${process.env.PORT || 'unset'} | main=${require.main === module} | cwd=${process.cwd()} | dir=${__dirname} | env=${Object.keys(process.env).filter((k) => /^DB_|DATABASE_URL|^PORT$/.test(k)).join(',')}\n`);
+  } catch (e) { /* ignore */ }
+  global.__trace = trace;
+})('server.js loading');
 
 const path = require('path');
 const express = require('express');
@@ -12,8 +21,9 @@ const fms = require('./src/fms');
 
 const PORT = process.env.PORT || 3000;
 const log = (level, message, extra) => console.log(JSON.stringify(Object.assign({ timestamp: new Date().toISOString(), level, message }, extra || {})));
+process.on('exit', (c) => { try { global.__trace('exit code ' + c); } catch (_) {} });
 process.on('unhandledRejection', (e) => log('error', 'unhandledRejection: ' + (e && e.message ? e.message : String(e))));
-process.on('uncaughtException', (e) => { log('error', 'uncaughtException: ' + (e && e.stack ? e.stack : String(e))); });
+process.on('uncaughtException', (e) => { log('error', 'uncaughtException: ' + (e && e.stack ? e.stack : String(e))); try { global.__trace('uncaughtException ' + (e && e.message)); } catch (_) {} });
 
 const state = { db: 'starting', error: null, attempts: 0, since: new Date().toISOString(), readyAt: null };
 
@@ -76,7 +86,7 @@ connectWithRetry();
 
 // Run directly (node server.js) → listen. Imported by a host runtime (Hostinger / Passenger) → export the app.
 if (require.main === module || process.env.PORT) {
-  const server = app.listen(PORT, () => log('info', `SSPACIA Sales Autopilot listening on ${PORT}`));
+  const server = app.listen(PORT, () => { log('info', `SSPACIA Sales Autopilot listening on ${PORT}`); try { global.__trace('listening on ' + PORT); } catch (_) {} });
   server.on('error', (e) => log('error', `listen failed on ${PORT}: ${e.message}`));
 }
 
