@@ -1,4 +1,4 @@
-name: Probe deployed site
+name: Probe deployed site (v3)
 on:
   workflow_dispatch:
   push:
