@@ -1,0 +1,20 @@
+{
+  "name": "sspacia-sales-autopilot",
+  "version": "1.0.0",
+  "description": "SSPACIA Sales Autopilot ERP — ASMP (Rahul Jain) sales sciences implemented as a web system: Enquiry Capture, Sales FMS, SCOT, CRM FMS, MeCA, NBD-CRR, Leaking Bucket, Wallet Share, Gap Analysis, Plan the Year, GP Sheet, Compounding 4X, Golden Client List, Lead Generation Plan, Scripts & Templates, DSR, Weekly Review.",
+  "main": "server.js",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo \"no build step required\"",
+    "dev": "DB_DRIVER=sqlite DB_FILE=./dev.sqlite node server.js",
+    "test": "DB_DRIVER=sqlite DB_FILE=:memory: node test/smoke.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "mysql2": "^3.11.5"
+  }
+}
