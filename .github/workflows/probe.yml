@@ -14,21 +14,23 @@ jobs:
       body: ${{ steps.p.outputs.body }}
     steps:
       - id: p
+        shell: bash
         run: |
           set +e
           BASE="https://forestgreen-narwhal-176171.hostingersite.com"
-          H=$(curl -sS -m 30 -o /tmp/h.txt -w '%{http_code}' "$BASE/api/health")
-          R=$(curl -sS -m 30 -o /tmp/r.txt -w '%{http_code}' "$BASE/")
-          S=$(curl -sS -m 30 -o /tmp/s.txt -w '%{http_code}' "$BASE/api/auth/status")
-          A=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' "$BASE/app.js")
-          TITLE=$(grep -o '<title>[^<]*' /tmp/r.txt | head -1 | cut -c8-60)
-          echo "summary=health=$H root=$R status=$S appjs=$A title=[$TITLE]" >> "$GITHUB_OUTPUT"
-          BODY=$(tr -d '\n' < /tmp/h.txt | cut -c1-120)" | "$(tr -d '\n' < /tmp/s.txt | cut -c1-80)
+          H=$(curl -s -m 30 -o /tmp/h.txt -w '%{http_code}' "$BASE/api/health" 2>/tmp/he.txt); HE=$?
+          R=$(curl -s -m 30 -o /tmp/r.txt -w '%{http_code}' "$BASE/" 2>/dev/null); RE=$?
+          S=$(curl -s -m 30 -o /tmp/s.txt -w '%{http_code}' "$BASE/api/auth/status" 2>/dev/null); SE=$?
+          A=$(curl -s -m 30 -o /dev/null -w '%{http_code}' "$BASE/app.js" 2>/dev/null); AE=$?
+          TITLE=$(grep -o '<title>[^<]*' /tmp/r.txt 2>/dev/null | head -1 | cut -c8-60)
+          ERR=$(tr -d '\n' < /tmp/he.txt 2>/dev/null | cut -c1-100)
+          echo "summary=health=$H/$HE root=$R/$RE status=$S/$SE appjs=$A/$AE title=[$TITLE] err=[$ERR]" >> "$GITHUB_OUTPUT"
+          BODY=$(tr -d '\n' < /tmp/h.txt 2>/dev/null | cut -c1-120)" | "$(tr -d '\n' < /tmp/s.txt 2>/dev/null | cut -c1-80)" | "$(tr -d '\n' < /tmp/r.txt 2>/dev/null | cut -c1-120)
           echo "body=$BODY" >> "$GITHUB_OUTPUT"
-          cat /tmp/h.txt; echo; cat /tmp/s.txt; echo; head -c 300 /tmp/r.txt
+          exit 0
   report:
     needs: probe
     runs-on: ubuntu-latest
     name: "RESULT ${{ needs.probe.outputs.summary }} :: ${{ needs.probe.outputs.body }}"
     steps:
-      - run: echo "${{ needs.probe.outputs.summary }}"
+      - run: echo done
