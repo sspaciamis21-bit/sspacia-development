@@ -9,7 +9,8 @@ const seed = require('./src/seed');
 const auth = require('./src/auth');
 const fms = require('./src/fms');
 
-const PORT = Number(process.env.PORT) || 3000;
+// Passenger / LiteSpeed may hand the app a unix-socket path in PORT: pass it through untouched.
+const PORT = process.env.PORT && String(process.env.PORT).trim() !== '' ? (/^\d+$/.test(String(process.env.PORT).trim()) ? Number(process.env.PORT) : String(process.env.PORT).trim()) : 3000;
 const log = (level, message, extra) => console.log(JSON.stringify(Object.assign({ timestamp: new Date().toISOString(), level, message }, extra || {})));
 process.on('unhandledRejection', (e) => log('error', 'unhandledRejection: ' + (e && e.message ? e.message : String(e))));
 process.on('uncaughtException', (e) => { log('error', 'uncaughtException: ' + (e && e.stack ? e.stack : String(e))); });
@@ -71,5 +72,5 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong' });
 });
 
-app.listen(PORT, () => log('info', `SSPACIA Sales Autopilot listening on :${PORT}`));
+app.listen(PORT, () => log('info', `SSPACIA Sales Autopilot listening on ${typeof PORT === 'number' ? ':' + PORT : PORT}`));
 connectWithRetry();
