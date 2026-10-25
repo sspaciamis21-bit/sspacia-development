@@ -15,10 +15,11 @@ const driver = process.env.DB_DRIVER || ((process.env.DATABASE_URL || process.en
 let pool = null;   // mysql2 pool
 let sqlite = null; // node:sqlite DatabaseSync
 
+function fixHost(h) { return !h || h === 'localhost' ? '127.0.0.1' : h; }
 function mysqlConfigFromEnv() {
   if (process.env.DB_HOST || process.env.DB_NAME) {
     return {
-      host: process.env.DB_HOST || '127.0.0.1',
+      host: fixHost(process.env.DB_HOST),
       port: Number(process.env.DB_PORT || 3306),
       database: process.env.DB_NAME,
       user: process.env.DB_USER,
@@ -27,7 +28,7 @@ function mysqlConfigFromEnv() {
   }
   const u = new URL(process.env.DATABASE_URL);
   return {
-    host: u.hostname || '127.0.0.1',
+    host: fixHost(u.hostname),
     port: Number(u.port || 3306),
     database: decodeURIComponent(u.pathname.replace(/^\//, '')),
     user: decodeURIComponent(u.username),
@@ -51,7 +52,7 @@ async function init() {
     });
     // fail fast with a clear message
     const conn = await pool.getConnection();
-    await conn.query("SET time_zone = '+05:30'");
+    try { await conn.query("SET time_zone = '+05:30'"); } catch (_) { /* optional */ }
     conn.release();
   } else {
     const { DatabaseSync } = require('node:sqlite');
