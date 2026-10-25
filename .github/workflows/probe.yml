@@ -1,4 +1,4 @@
-name: Probe deployed site (v3)
+name: Probe deployed site (v4)
 on:
   workflow_dispatch:
   push:
@@ -18,15 +18,14 @@ jobs:
         run: |
           set +e
           BASE="https://forestgreen-narwhal-176171.hostingersite.com"
-          H=$(curl -s -m 30 -o /tmp/h.txt -w '%{http_code}' "$BASE/api/health" 2>/tmp/he.txt); HE=$?
-          R=$(curl -s -m 30 -o /tmp/r.txt -w '%{http_code}' "$BASE/" 2>/dev/null); RE=$?
-          S=$(curl -s -m 30 -o /tmp/s.txt -w '%{http_code}' "$BASE/api/auth/status" 2>/dev/null); SE=$?
-          A=$(curl -s -m 30 -o /dev/null -w '%{http_code}' "$BASE/app.js" 2>/dev/null); AE=$?
-          TITLE=$(grep -o '<title>[^<]*' /tmp/r.txt 2>/dev/null | head -1 | cut -c8-60)
-          ERR=$(tr -d '\n' < /tmp/he.txt 2>/dev/null | cut -c1-100)
-          echo "summary=health=$H/$HE root=$R/$RE status=$S/$SE appjs=$A/$AE title=[$TITLE] err=[$ERR]" >> "$GITHUB_OUTPUT"
-          BODY=$(tr -d '\n' < /tmp/h.txt 2>/dev/null | cut -c1-120)" | "$(tr -d '\n' < /tmp/s.txt 2>/dev/null | cut -c1-80)" | "$(tr -d '\n' < /tmp/r.txt 2>/dev/null | cut -c1-120)
-          echo "body=$BODY" >> "$GITHUB_OUTPUT"
+          REF="https://aquamarine-dragonfly-762973.hostingersite.com"
+          W='code=%{http_code} ip=%{remote_ip} dns=%{time_namelookup} con=%{time_connect} tls=%{time_appconnect} tot=%{time_total}'
+          H=$(curl -s -m 25 -o /tmp/h.txt -w "$W" "$BASE/api/health" 2>&1); HE=$?
+          P=$(curl -s -m 25 -o /dev/null -w "$W" "http://forestgreen-narwhal-176171.hostingersite.com/api/health" 2>&1); PE=$?
+          X=$(curl -s -m 25 -o /dev/null -w "$W" "$REF/" 2>&1); XE=$?
+          D=$(getent hosts forestgreen-narwhal-176171.hostingersite.com | head -1)
+          echo "summary=NEW[$H/$HE] HTTP[$P/$PE] REF[$X/$XE] DNS[$D]" >> "$GITHUB_OUTPUT"
+          echo "body=$(tr -d '\n' < /tmp/h.txt 2>/dev/null | cut -c1-150)" >> "$GITHUB_OUTPUT"
           exit 0
   report:
     needs: probe
